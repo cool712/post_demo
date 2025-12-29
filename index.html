@@ -91,6 +91,7 @@
     const drawingUtils = new DrawingUtils(canvasCtx);
     const webcamButton = document.getElementById("webcamButton");
 
+    // 初始化 PoseLandmarker
     async function createPoseLandmarker() {
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
@@ -109,7 +110,7 @@
     }
     createPoseLandmarker();
 
-    /* ---------- Image detection ---------- */
+    // ---------- Image detection ----------
     const imageContainers = document.getElementsByClassName("detectOnClick");
     for (let i = 0; i < imageContainers.length; i++) {
       imageContainers[i].children[0].addEventListener("click", async (event) => {
@@ -138,21 +139,23 @@
       });
     }
 
-    /* ---------- Webcam detection ---------- */
-    webcamButton.onclick = async () => {
+    // ---------- Webcam detection ----------
+    // 点击按钮立即触发 getUserMedia
+    webcamButton.addEventListener("click", () => {
       if (!poseLandmarker) return;
 
       if (!webcamRunning) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          video.srcObject = stream;
-          webcamRunning = true;
-          webcamButton.innerText = "DISABLE WEBCAM";
-          requestAnimationFrame(predictWebcam);
-        } catch (err) {
-          alert("Camera access denied or not supported on this device.");
-          console.error(err);
-        }
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            video.srcObject = stream;
+            webcamRunning = true;
+            webcamButton.innerText = "DISABLE WEBCAM";
+            requestAnimationFrame(predictWebcam);
+          })
+          .catch(err => {
+            alert("Camera access denied or not supported on this device.");
+            console.error(err);
+          });
       } else {
         webcamRunning = false;
         webcamButton.innerText = "ENABLE WEBCAM";
@@ -163,7 +166,7 @@
           canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
       }
-    };
+    });
 
     let lastVideoTime = -1;
     async function predictWebcam() {
