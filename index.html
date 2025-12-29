@@ -21,7 +21,6 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: rotateY(180deg); /* 视频镜像，像自拍 */
     }
 
     canvas {
@@ -31,7 +30,6 @@
       height: 100%;
       object-fit: cover;
       pointer-events: none;
-      transform: none; /* Canvas 不镜像 */
     }
 
     .controls {
@@ -74,14 +72,15 @@
 
     let poseLandmarker;
     let running = false;
-    let facingMode = "user";
+    let facingMode = "user"; // "user" = 前置, "environment" = 后置
+    let mirror = true;       // 是否镜像
 
     /* ================== 工具函数 ================== */
 
-    // 归一化坐标 → canvas 坐标（横向镜像）
+    // 归一化坐标 → canvas 坐标
     function toCanvas(p) {
       return {
-        x: (1 - p.x) * canvas.width, // 镜像处理
+        x: mirror ? (1 - p.x) * canvas.width : p.x * canvas.width,
         y: p.y * canvas.height
       };
     }
@@ -90,11 +89,9 @@
     function calcAngle(a, b, c) {
       const ab = { x: a.x - b.x, y: a.y - b.y };
       const cb = { x: c.x - b.x, y: c.y - b.y };
-
       const dot = ab.x * cb.x + ab.y * cb.y;
       const magAB = Math.hypot(ab.x, ab.y);
       const magCB = Math.hypot(cb.x, cb.y);
-
       let angle = Math.acos(dot / (magAB * magCB));
       return (angle * 180) / Math.PI;
     }
@@ -145,8 +142,13 @@
       video.srcObject = stream;
       await video.play();
 
+      // 设置 Canvas 尺寸
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+
+      // 视频镜像前置摄像头
+      mirror = facingMode === "user";
+      video.style.transform = mirror ? "rotateY(180deg)" : "none";
 
       running = true;
       requestAnimationFrame(loop);
@@ -183,37 +185,33 @@
     function drawPose(lm) {
       ctx.save();
 
-      // 绿色风格
       ctx.strokeStyle = "#00FF66";
       ctx.fillStyle = "#00FF66";
       ctx.lineWidth = 3;
 
-      // 骨骼连接
       const bones = [
         [11,13],[13,15], // 左臂
         [12,14],[14,16], // 右臂
         [23,25],[25,27], // 左腿
         [24,26],[26,28], // 右腿
-        [11,12], [23,24], [11,23], [12,24] // 躯干
+        [11,12],[23,24],[11,23],[12,24] // 躯干
       ];
 
       bones.forEach(([a,b]) => {
         drawLine(toCanvas(lm[a]), toCanvas(lm[b]));
       });
 
-      // 关键点
       bones.flat().forEach(i => drawPoint(toCanvas(lm[i])));
 
-      // 关节角度
-      drawJointAngle("Elbow", lm[11], lm[13], lm[15]); // 左肘
-      drawJointAngle("Elbow", lm[12], lm[14], lm[16]); // 右肘
-      drawJointAngle("Knee", lm[23], lm[25], lm[27]); // 左膝
-      drawJointAngle("Knee", lm[24], lm[26], lm[28]); // 右膝
+      drawJointAngle(lm[11], lm[13], lm[15]); // 左肘
+      drawJointAngle(lm[12], lm[14], lm[16]); // 右肘
+      drawJointAngle(lm[23], lm[25], lm[27]); // 左膝
+      drawJointAngle(lm[24], lm[26], lm[28]); // 右膝
 
       ctx.restore();
     }
 
-    function drawJointAngle(name, a, b, c) {
+    function drawJointAngle(a, b, c) {
       const angle = calcAngle(a, b, c);
       const p = toCanvas(b);
       drawAngleText(`${Math.round(angle)}°`, p);
