@@ -3,88 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <title>MediaPipe Pose Landmarker Demo</title>
-
-  <!-- Material UI -->
-  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
-  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-
   <style>
     body {
       font-family: Roboto, Arial, sans-serif;
       margin: 1em;
       color: #3d3d3d;
-      --mdc-theme-primary: #007f8b;
-      --mdc-theme-on-primary: #f1f3f4;
     }
-    h1 { color: #007f8b; }
-    h2 { clear: both; }
     video, canvas {
       max-width: 100%;
       height: auto;
       transform: rotateY(180deg);
     }
-    section { opacity: 1; transition: opacity 500ms ease-in-out; }
-    .videoView, .detectOnClick {
+    #container {
       position: relative;
-      float: left;
-      width: 48%;
-      margin: 1%;
-      cursor: pointer;
+      width: 100%;
+      max-width: 640px;
     }
-    .canvas, .output_canvas {
+    canvas {
       position: absolute;
       left: 0;
       top: 0;
       pointer-events: none;
       transform: rotateY(180deg);
     }
-    .detectOnClick img { width: 100%; }
-    #webcamButton { margin-bottom: 10px; }
-    @media screen and (max-width: 600px) {
-      .videoView, .detectOnClick { width: 100%; margin: 1% 0; }
+    button {
+      margin: 5px 5px 10px 0;
     }
   </style>
 </head>
-
 <body>
-  <h1>Pose detection using MediaPipe PoseLandmarker</h1>
+  <h1>Pose detection using MediaPipe</h1>
 
-  <section id="demos" class="invisible">
-    <h2>Demo: Detecting Images</h2>
-    <div class="detectOnClick">
-      <img src="https://assets.codepen.io/9177687/woman-ge0f199f92_640.jpg" crossorigin="anonymous">
-    </div>
-    <div class="detectOnClick">
-      <img src="https://assets.codepen.io/9177687/woman-g1af8d3deb_640.jpg" crossorigin="anonymous">
-    </div>
-
-    <h2>Demo: Webcam continuous pose detection</h2>
-    <div class="videoView">
-      <button id="webcamButton" class="mdc-button mdc-button--raised">
-        <span class="mdc-button__label">ENABLE WEBCAM</span>
-      </button>
-      <p id="webcamTip" style="color:red;">请点击按钮允许访问摄像头</p>
-      <div style="position: relative;">
-        <video id="webcam" autoplay playsinline></video>
-        <canvas id="output_canvas" class="output_canvas"></canvas>
-      </div>
-    </div>
-  </section>
+  <div id="container">
+    <button id="webcamButton">ENABLE WEBCAM</button>
+    <button id="switchButton">SWITCH CAMERA</button>
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="output_canvas"></canvas>
+  </div>
 
   <script type="module">
     import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.skypack.dev/@mediapipe/tasks-vision@0.10.0";
 
-    const demosSection = document.getElementById("demos");
+    const video = document.getElementById("webcam");
+    const canvas = document.getElementById("output_canvas");
+    const ctx = canvas.getContext("2d");
+    const drawingUtils = new DrawingUtils(ctx);
+    const webcamButton = document.getElementById("webcamButton");
+    const switchButton = document.getElementById("switchButton");
+
     let poseLandmarker;
     let runningMode = "IMAGE";
     let webcamRunning = false;
-
-    const video = document.getElementById("webcam");
-    const canvasElement = document.getElementById("output_canvas");
-    const canvasCtx = canvasElement.getContext("2d");
-    const drawingUtils = new DrawingUtils(canvasCtx);
-    const webcamButton = document.getElementById("webcamButton");
-    const webcamTip = document.getElementById("webcamTip");
+    let currentFacingMode = "user"; // "user" = 前置, "environment" = 后置
 
     // 初始化 PoseLandmarker
     async function createPoseLandmarker() {
@@ -100,67 +70,49 @@
         runningMode,
         numPoses: 2
       });
-
-      demosSection.classList.remove("invisible");
     }
+
     createPoseLandmarker();
 
-    // ---------- Image detection ----------
-    const imageContainers = document.getElementsByClassName("detectOnClick");
-    for (let i = 0; i < imageContainers.length; i++) {
-      imageContainers[i].children[0].addEventListener("click", async (event) => {
-        if (!poseLandmarker) return;
-        if (runningMode === "VIDEO") {
-          runningMode = "IMAGE";
-          await poseLandmarker.setOptions({ runningMode: "IMAGE" });
-        }
-
-        const result = await poseLandmarker.detect(event.target);
-        const canvas = document.createElement("canvas");
-        canvas.className = "canvas";
-        canvas.width = event.target.naturalWidth;
-        canvas.height = event.target.naturalHeight;
-        canvas.style.width = event.target.width + "px";
-        canvas.style.height = event.target.height + "px";
-
-        event.target.parentNode.appendChild(canvas);
-        const ctx = canvas.getContext("2d");
-        const drawingUtils = new DrawingUtils(ctx);
-
-        for (const landmark of result.landmarks) {
-          drawingUtils.drawLandmarks(landmark);
-          drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS);
-        }
-      });
+    async function startWebcam() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacingMode }
+        });
+        video.srcObject = stream;
+        webcamRunning = true;
+        webcamButton.innerText = "DISABLE WEBCAM";
+        requestAnimationFrame(predictWebcam);
+      } catch (err) {
+        alert("摄像头访问被拒绝或设备不支持。");
+        console.error(err);
+      }
     }
 
-    // ---------- Webcam detection ----------
-    webcamButton.addEventListener("click", async () => {
-      if (!poseLandmarker) return;
+    function stopWebcam() {
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      webcamRunning = false;
+      webcamButton.innerText = "ENABLE WEBCAM";
+    }
 
+    webcamButton.addEventListener("click", () => {
       if (!webcamRunning) {
-        try {
-          // 请求摄像头权限
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          video.srcObject = stream;
-          webcamRunning = true;
-          webcamButton.innerText = "DISABLE WEBCAM";
-          webcamTip.style.display = "none"; // 隐藏提示
-          requestAnimationFrame(predictWebcam);
-        } catch (err) {
-          alert("摄像头访问被拒绝或设备不支持。");
-          console.error(err);
-        }
+        startWebcam();
       } else {
-        webcamRunning = false;
-        webcamButton.innerText = "ENABLE WEBCAM";
-        webcamTip.style.display = "block"; // 显示提示
-        if (video.srcObject) {
-          const tracks = video.srcObject.getTracks();
-          tracks.forEach(track => track.stop());
-          video.srcObject = null;
-          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        }
+        stopWebcam();
+      }
+    });
+
+    switchButton.addEventListener("click", () => {
+      // 切换摄像头
+      currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+      if (webcamRunning) {
+        stopWebcam();
+        startWebcam();
       }
     });
 
@@ -176,7 +128,9 @@
       if (video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
         const result = await poseLandmarker.detectForVideo(video, performance.now());
-        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (const landmark of result.landmarks) {
           drawingUtils.drawLandmarks(landmark);
           drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS);
