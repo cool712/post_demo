@@ -21,7 +21,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: rotateY(180deg); /* 保持自拍镜像 */
+      transform: rotateY(180deg); /* 视频镜像，像自拍 */
     }
 
     canvas {
@@ -78,10 +78,10 @@
 
     /* ================== 工具函数 ================== */
 
-    // 归一化坐标 → canvas 坐标（解决镜像问题）
+    // 归一化坐标 → canvas 坐标（横向镜像）
     function toCanvas(p) {
       return {
-        x: p.x * canvas.width,
+        x: (1 - p.x) * canvas.width, // 镜像处理
         y: p.y * canvas.height
       };
     }
@@ -183,12 +183,12 @@
     function drawPose(lm) {
       ctx.save();
 
-      // ✅ 统一绿色风格
+      // 绿色风格
       ctx.strokeStyle = "#00FF66";
       ctx.fillStyle = "#00FF66";
       ctx.lineWidth = 3;
 
-      // === 骨骼连接 ===
+      // 骨骼连接
       const bones = [
         [11,13],[13,15], // 左臂
         [12,14],[14,16], // 右臂
@@ -201,10 +201,10 @@
         drawLine(toCanvas(lm[a]), toCanvas(lm[b]));
       });
 
-      // === 关键点 ===
+      // 关键点
       bones.flat().forEach(i => drawPoint(toCanvas(lm[i])));
 
-      // === 关节角度 ===
+      // 关节角度
       drawJointAngle("Elbow", lm[11], lm[13], lm[15]); // 左肘
       drawJointAngle("Elbow", lm[12], lm[14], lm[16]); // 右肘
       drawJointAngle("Knee", lm[23], lm[25], lm[27]); // 左膝
