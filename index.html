@@ -51,109 +51,188 @@
     <button id="switchBtn">SWITCH</button>
   </div>
 
-  <script type="module">
-    import {
-      PoseLandmarker,
-      FilesetResolver,
-      DrawingUtils
-    } from "https://cdn.skypack.dev/@mediapipe/tasks-vision@0.10.0";
+ <script type="module">
+import {
+  PoseLandmarker,
+  FilesetResolver
+} from "https://cdn.skypack.dev/@mediapipe/tasks-vision@0.10.0";
 
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const drawUtils = new DrawingUtils(ctx);
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-    const startBtn = document.getElementById("startBtn");
-    const switchBtn = document.getElementById("switchBtn");
+let poseLandmarker;
+let running = false;
+let facingMode = "user";
 
-    let poseLandmarker = null;
-    let running = false;
-    let facingMode = "user"; // user | environment
+/* ================== 工具函数 ================== */
 
-    /* 初始化 Pose */
-    async function initPose() {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-      );
+// 归一化坐标 → canvas 坐标
+function toCanvas(p) {
+  return {
+    x: p.x * canvas.width,
+    y: p.y * canvas.height
+  };
+}
 
-      poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-          delegate: "GPU"
-        },
-        runningMode: "VIDEO",
-        numPoses: 1
-      });
-    }
+// 计算三点夹角（单位：度）
+function calcAngle(a, b, c) {
+  const ab = { x: a.x - b.x, y: a.y - b.y };
+  const cb = { x: c.x - b.x, y: c.y - b.y };
 
-    /* 启动摄像头 */
-    async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode }
-      });
+  const dot = ab.x * cb.x + ab.y * cb.y;
+  const magAB = Math.hypot(ab.x, ab.y);
+  const magCB = Math.hypot(cb.x, cb.y);
 
-      video.srcObject = stream;
-      await video.play();
-      await new Promise(r => video.onloadedmetadata = r);
+  let angle = Math.acos(dot / (magAB * magCB));
+  return (angle * 180) / Math.PI;
+}
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+// 画点
+function drawPoint(p) {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
 
-      running = true;
-      requestAnimationFrame(loop);
-    }
+// 画线
+function drawLine(p1, p2) {
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+}
 
-    /* 停止摄像头 */
-    function stopCamera() {
-      running = false;
-      video.srcObject?.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+// 写角度文字
+function drawAngleText(text, p) {
+  ctx.font = "14px Arial";
+  ctx.fillText(text, p.x + 6, p.y - 6);
+}
 
-    /* 检测循环 */
-    async function loop() {
-      if (!running || !poseLandmarker) return;
+/* ================== 初始化 Pose ================== */
 
-      const result = await poseLandmarker.detectForVideo(
-        video,
-        performance.now()
-      );
+async function initPose() {
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+  );
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numPoses: 1
+  });
+}
 
-      for (const landmarks of result.landmarks) {
-        drawUtils.drawLandmarks(landmarks, { radius: 4 });
-        drawUtils.drawConnectors(
-          landmarks,
-          PoseLandmarker.POSE_CONNECTIONS
-        );
-      }
+/* ================== 摄像头 ================== */
 
-      requestAnimationFrame(loop);
-    }
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode }
+  });
 
-    /* 按钮逻辑 */
-    initPose().then(() => {
-      startBtn.onclick = async () => {
-        if (!running) {
-          startBtn.innerText = "STOP";
-          await startCamera();
-        } else {
-          startBtn.innerText = "START";
-          stopCamera();
-        }
-      };
+  video.srcObject = stream;
+  await video.play();
 
-      switchBtn.onclick = async () => {
-        facingMode = facingMode === "user" ? "environment" : "user";
-        if (running) {
-          stopCamera();
-          await startCamera();
-        }
-      };
-    });
-  </script>
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  running = true;
+  requestAnimationFrame(loop);
+}
+
+function stopCamera() {
+  running = false;
+  video.srcObject?.getTracks().forEach(t => t.stop());
+  video.srcObject = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/* ================== 主循环 ================== */
+
+async function loop() {
+  if (!running) return;
+
+  const result = await poseLandmarker.detectForVideo(
+    video,
+    performance.now()
+  );
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (result.landmarks.length) {
+    drawPose(result.landmarks[0]);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+/* ================== 绘制 + 角度 ================== */
+
+function drawPose(lm) {
+  ctx.save();
+
+  // ✅ 统一绿色风格
+  ctx.strokeStyle = "#00FF66";
+  ctx.fillStyle = "#00FF66";
+  ctx.lineWidth = 3;
+
+  // === 骨骼连接 ===
+  const bones = [
+    [11,13],[13,15], // 左臂
+    [12,14],[14,16], // 右臂
+    [23,25],[25,27], // 左腿
+    [24,26],[26,28], // 右腿
+    [11,12], [23,24], [11,23], [12,24] // 躯干
+  ];
+
+  bones.forEach(([a,b]) => {
+    drawLine(toCanvas(lm[a]), toCanvas(lm[b]));
+  });
+
+  // === 关键点 ===
+  bones.flat().forEach(i => drawPoint(toCanvas(lm[i])));
+
+  // === 关节角度 ===
+  drawJointAngle("Elbow", lm[11], lm[13], lm[15]); // 左肘
+  drawJointAngle("Elbow", lm[12], lm[14], lm[16]); // 右肘
+  drawJointAngle("Knee", lm[23], lm[25], lm[27]); // 左膝
+  drawJointAngle("Knee", lm[24], lm[26], lm[28]); // 右膝
+
+  ctx.restore();
+}
+
+function drawJointAngle(name, a, b, c) {
+  const angle = calcAngle(a, b, c);
+  const p = toCanvas(b);
+  drawAngleText(`${Math.round(angle)}°`, p);
+}
+
+/* ================== 按钮 ================== */
+
+await initPose();
+
+startBtn.onclick = async () => {
+  if (!running) {
+    startBtn.innerText = "STOP";
+    await startCamera();
+  } else {
+    startBtn.innerText = "START";
+    stopCamera();
+  }
+};
+
+switchBtn.onclick = async () => {
+  facingMode = facingMode === "user" ? "environment" : "user";
+  if (running) {
+    stopCamera();
+    await startCamera();
+  }
+};
+</script>
+
 </body>
 </html>
