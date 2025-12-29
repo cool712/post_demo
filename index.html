@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Pose Detection</title>
+  <title>High-Res Pose Detection</title>
 
   <style>
     html, body {
@@ -76,7 +76,6 @@
     let mirror = true;       // 是否镜像
 
     /* ================== 工具函数 ================== */
-
     function toCanvas(p) {
       return {
         x: mirror ? (1 - p.x) * canvas.width : p.x * canvas.width,
@@ -113,7 +112,6 @@
     }
 
     /* ================== 初始化 Pose ================== */
-
     async function initPose() {
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
@@ -131,10 +129,13 @@
     }
 
     /* ================== 摄像头 ================== */
-
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode }
+        video: {
+          facingMode: facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
       });
 
       video.srcObject = stream;
@@ -147,7 +148,7 @@
       mirror = facingMode === "user";
       video.style.transform = mirror ? "rotateY(180deg)" : "none";
 
-      // 自动聚焦 (后置摄像头)
+      // 后置摄像头自动聚焦
       if (!mirror) {
         const track = stream.getVideoTracks()[0];
         const capabilities = track.getCapabilities();
@@ -173,7 +174,6 @@
     }
 
     /* ================== 主循环 ================== */
-
     async function loop() {
       if (!running) return;
 
@@ -188,7 +188,6 @@
     }
 
     /* ================== 绘制 + 角度 ================== */
-
     function drawPose(lm) {
       ctx.save();
 
@@ -220,7 +219,6 @@
     }
 
     /* ================== 按钮 ================== */
-
     await initPose();
 
     startBtn.onclick = async () => {
