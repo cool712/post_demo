@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>High-Res Pose Detection</title>
+  <title>Pose Detection - Full Skeleton</title>
 
   <style>
     html, body {
@@ -72,10 +72,9 @@
 
     let poseLandmarker;
     let running = false;
-    let facingMode = "user"; // "user" = 前置, "environment" = 后置
-    let mirror = true;       // 是否镜像
+    let facingMode = "user";
+    let mirror = true;
 
-    /* ================== 工具函数 ================== */
     function toCanvas(p) {
       return {
         x: mirror ? (1 - p.x) * canvas.width : p.x * canvas.width,
@@ -93,9 +92,9 @@
       return (angle * 180) / Math.PI;
     }
 
-    function drawPoint(p) {
+    function drawPoint(p, radius = 8) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -107,11 +106,10 @@
     }
 
     function drawAngleText(text, p) {
-      ctx.font = "14px Arial";
-      ctx.fillText(text, p.x + 6, p.y - 6);
+      ctx.font = "16px Arial";
+      ctx.fillText(text, p.x + 8, p.y - 8);
     }
 
-    /* ================== 初始化 Pose ================== */
     async function initPose() {
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
@@ -128,7 +126,6 @@
       });
     }
 
-    /* ================== 摄像头 ================== */
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -144,11 +141,9 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // 镜像逻辑
       mirror = facingMode === "user";
       video.style.transform = mirror ? "rotateY(180deg)" : "none";
 
-      // 后置摄像头自动聚焦
       if (!mirror) {
         const track = stream.getVideoTracks()[0];
         const capabilities = track.getCapabilities();
@@ -173,7 +168,6 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    /* ================== 主循环 ================== */
     async function loop() {
       if (!running) return;
 
@@ -187,23 +181,32 @@
       requestAnimationFrame(loop);
     }
 
-    /* ================== 绘制 + 角度 ================== */
     function drawPose(lm) {
       ctx.save();
-
       ctx.strokeStyle = "#00FF66";
       ctx.fillStyle = "#00FF66";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 6;
 
+      // 躯干、手臂、腿骨架
       const bones = [
-        [11,13],[13,15], [12,14],[14,16],
-        [23,25],[25,27], [24,26],[26,28],
+        [11,13],[13,15],[12,14],[14,16],
+        [23,25],[25,27],[24,26],[26,28],
         [11,12],[23,24],[11,23],[12,24]
       ];
 
-      bones.forEach(([a,b]) => drawLine(toCanvas(lm[a]), toCanvas(lm[b])));
-      bones.flat().forEach(i => drawPoint(toCanvas(lm[i])));
+      // 头部骨架连接：鼻子(0) -> 颈部/肩膀中点, 鼻子 -> 双眼, 双眼 -> 双耳
+      const headBones = [
+        [11,0],[12,0], // 左肩-鼻子, 右肩-鼻子
+        [0,1],[0,2],[0,3],[0,4],[0,5],[0,6], // 鼻子到眼睛
+        [1,2],[4,5],[2,3],[5,6],[7,1],[8,4] // 眼睛到耳朵
+      ];
 
+      bones.concat(headBones).forEach(([a,b]) => drawLine(toCanvas(lm[a]), toCanvas(lm[b])));
+
+      // 绘制所有关键点
+      lm.forEach(p => drawPoint(toCanvas(p)));
+
+      // 绘制关节角度（常用关节）
       drawJointAngle(lm[11], lm[13], lm[15]); // 左肘
       drawJointAngle(lm[12], lm[14], lm[16]); // 右肘
       drawJointAngle(lm[23], lm[25], lm[27]); // 左膝
@@ -218,7 +221,6 @@
       drawAngleText(`${Math.round(angle)}°`, p);
     }
 
-    /* ================== 按钮 ================== */
     await initPose();
 
     startBtn.onclick = async () => {
