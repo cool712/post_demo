@@ -24,11 +24,9 @@
       transform: rotateY(180deg);
     }
 
-    canvas {
-      pointer-events: none;
-    }
+    canvas { pointer-events: none; }
 
-    .btn {
+    .controls {
       position: absolute;
       bottom: 20px;
       left: 50%;
@@ -37,8 +35,9 @@
     }
 
     button {
-      padding: 10px 16px;
-      font-size: 16px;
+      padding: 10px 14px;
+      font-size: 15px;
+      margin: 0 6px;
     }
   </style>
 </head>
@@ -47,8 +46,9 @@
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
 
-  <div class="btn">
+  <div class="controls">
     <button id="startBtn">START</button>
+    <button id="switchBtn">SWITCH</button>
   </div>
 
   <script type="module">
@@ -62,12 +62,15 @@
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const drawUtils = new DrawingUtils(ctx);
+
     const startBtn = document.getElementById("startBtn");
+    const switchBtn = document.getElementById("switchBtn");
 
     let poseLandmarker = null;
     let running = false;
+    let facingMode = "user"; // user | environment
 
-    /* ① 初始化 Pose（必须 await 完成） */
+    /* 初始化 Pose */
     async function initPose() {
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
@@ -82,22 +85,18 @@
         runningMode: "VIDEO",
         numPoses: 1
       });
-
-      console.log("PoseLandmarker ready");
     }
 
-    /* ② 启动摄像头 */
+    /* 启动摄像头 */
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" }
+        video: { facingMode }
       });
 
       video.srcObject = stream;
       await video.play();
-
       await new Promise(r => video.onloadedmetadata = r);
 
-      // ⚠️ 检测尺寸 = 原始视频尺寸
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
@@ -105,7 +104,15 @@
       requestAnimationFrame(loop);
     }
 
-    /* ③ 主循环（不要用 currentTime 判断） */
+    /* 停止摄像头 */
+    function stopCamera() {
+      running = false;
+      video.srcObject?.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    /* 检测循环 */
     async function loop() {
       if (!running || !poseLandmarker) return;
 
@@ -116,30 +123,34 @@
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (result.landmarks.length > 0) {
-        for (const landmarks of result.landmarks) {
-          drawUtils.drawLandmarks(landmarks, { radius: 4 });
-          drawUtils.drawConnectors(
-            landmarks,
-            PoseLandmarker.POSE_CONNECTIONS
-          );
-        }
+      for (const landmarks of result.landmarks) {
+        drawUtils.drawLandmarks(landmarks, { radius: 4 });
+        drawUtils.drawConnectors(
+          landmarks,
+          PoseLandmarker.POSE_CONNECTIONS
+        );
       }
 
       requestAnimationFrame(loop);
     }
 
-    /* ④ 按钮（严格用户手势） */
+    /* 按钮逻辑 */
     initPose().then(() => {
       startBtn.onclick = async () => {
         if (!running) {
           startBtn.innerText = "STOP";
           await startCamera();
         } else {
-          running = false;
-          video.srcObject?.getTracks().forEach(t => t.stop());
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
           startBtn.innerText = "START";
+          stopCamera();
+        }
+      };
+
+      switchBtn.onclick = async () => {
+        facingMode = facingMode === "user" ? "environment" : "user";
+        if (running) {
+          stopCamera();
+          await startCamera();
         }
       };
     });
