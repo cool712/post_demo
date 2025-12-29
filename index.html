@@ -80,6 +80,15 @@
           video: { facingMode: currentFacingMode }
         });
         video.srcObject = stream;
+
+        // 等待视频就绪
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => resolve();
+        });
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
         webcamRunning = true;
         webcamButton.innerText = "DISABLE WEBCAM";
         requestAnimationFrame(predictWebcam);
@@ -107,12 +116,11 @@
       }
     });
 
-    switchButton.addEventListener("click", () => {
-      // 切换摄像头
+    switchButton.addEventListener("click", async () => {
       currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
       if (webcamRunning) {
         stopWebcam();
-        startWebcam();
+        await startWebcam();
       }
     });
 
