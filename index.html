@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>MediaPipe Pose Landmarker Demo</title>
 
-  <!-- Material UI（可选） -->
+  <!-- Material UI -->
   <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
   <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
 
@@ -16,19 +16,14 @@
       --mdc-theme-primary: #007f8b;
       --mdc-theme-on-primary: #f1f3f4;
     }
-
     h1 { color: #007f8b; }
     h2 { clear: both; }
-    em { font-weight: bold; }
-
     video, canvas {
       max-width: 100%;
       height: auto;
       transform: rotateY(180deg);
     }
-
     section { opacity: 1; transition: opacity 500ms ease-in-out; }
-
     .videoView, .detectOnClick {
       position: relative;
       float: left;
@@ -36,7 +31,6 @@
       margin: 1%;
       cursor: pointer;
     }
-
     .canvas, .output_canvas {
       position: absolute;
       left: 0;
@@ -44,7 +38,6 @@
       pointer-events: none;
       transform: rotateY(180deg);
     }
-
     .detectOnClick img { width: 100%; }
     #webcamButton { margin-bottom: 10px; }
     @media screen and (max-width: 600px) {
@@ -70,6 +63,7 @@
       <button id="webcamButton" class="mdc-button mdc-button--raised">
         <span class="mdc-button__label">ENABLE WEBCAM</span>
       </button>
+      <p id="webcamTip" style="color:red;">请点击按钮允许访问摄像头</p>
       <div style="position: relative;">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="output_canvas" class="output_canvas"></canvas>
@@ -90,6 +84,7 @@
     const canvasCtx = canvasElement.getContext("2d");
     const drawingUtils = new DrawingUtils(canvasCtx);
     const webcamButton = document.getElementById("webcamButton");
+    const webcamTip = document.getElementById("webcamTip");
 
     // 初始化 PoseLandmarker
     async function createPoseLandmarker() {
@@ -140,25 +135,26 @@
     }
 
     // ---------- Webcam detection ----------
-    // 点击按钮立即触发 getUserMedia
-    webcamButton.addEventListener("click", () => {
+    webcamButton.addEventListener("click", async () => {
       if (!poseLandmarker) return;
 
       if (!webcamRunning) {
-        navigator.mediaDevices.getUserMedia({ video: true })
-          .then(stream => {
-            video.srcObject = stream;
-            webcamRunning = true;
-            webcamButton.innerText = "DISABLE WEBCAM";
-            requestAnimationFrame(predictWebcam);
-          })
-          .catch(err => {
-            alert("Camera access denied or not supported on this device.");
-            console.error(err);
-          });
+        try {
+          // 请求摄像头权限
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+          webcamRunning = true;
+          webcamButton.innerText = "DISABLE WEBCAM";
+          webcamTip.style.display = "none"; // 隐藏提示
+          requestAnimationFrame(predictWebcam);
+        } catch (err) {
+          alert("摄像头访问被拒绝或设备不支持。");
+          console.error(err);
+        }
       } else {
         webcamRunning = false;
         webcamButton.innerText = "ENABLE WEBCAM";
+        webcamTip.style.display = "block"; // 显示提示
         if (video.srcObject) {
           const tracks = video.srcObject.getTracks();
           tracks.forEach(track => track.stop());
