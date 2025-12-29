@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Fullscreen Pose Detection</title>
+  <title>Pose Detection</title>
 
   <style>
     html, body {
@@ -14,6 +14,7 @@
       background: black;
       overflow: hidden;
     }
+
     video, canvas {
       position: absolute;
       inset: 0;
@@ -22,30 +23,32 @@
       object-fit: cover;
       transform: rotateY(180deg);
     }
-    canvas { pointer-events: none; }
-    .controls {
+
+    canvas {
+      pointer-events: none;
+    }
+
+    .btn {
       position: absolute;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 10;
     }
+
     button {
       padding: 10px 16px;
       font-size: 16px;
-      margin: 0 6px;
     }
   </style>
 </head>
 
 <body>
-  <!-- ⚠️ muted 是关键 -->
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
 
-  <div class="controls">
+  <div class="btn">
     <button id="startBtn">START</button>
-    <button id="switchBtn">SWITCH</button>
   </div>
 
   <script type="module">
@@ -58,16 +61,13 @@
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    const drawer = new DrawingUtils(ctx);
-
+    const drawUtils = new DrawingUtils(ctx);
     const startBtn = document.getElementById("startBtn");
-    const switchBtn = document.getElementById("switchBtn");
 
-    let poseLandmarker;
+    let poseLandmarker = null;
     let running = false;
-    let lastVideoTime = -1;
-    let facingMode = "user";
 
+    /* ① 初始化 Pose（必须 await 完成） */
     async function initPose() {
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
@@ -82,65 +82,64 @@
         runningMode: "VIDEO",
         numPoses: 1
       });
+
+      console.log("PoseLandmarker ready");
     }
 
+    /* ② 启动摄像头 */
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode }
+        video: { facingMode: "user" }
       });
 
       video.srcObject = stream;
-      await video.play(); // ❗WebView 必须
+      await video.play();
 
-      video.onloadedmetadata = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        running = true;
-        requestAnimationFrame(loop);
-      };
-    }
+      await new Promise(r => video.onloadedmetadata = r);
 
-    function stopCamera() {
-      running = false;
-      video.srcObject?.getTracks().forEach(t => t.stop());
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+      // ⚠️ 检测尺寸 = 原始视频尺寸
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-    async function loop() {
-      if (!running) return;
-
-      if (video.currentTime !== lastVideoTime) {
-        lastVideoTime = video.currentTime;
-        const result = await poseLandmarker.detectForVideo(
-          video,
-          performance.now()
-        );
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (const lms of result.landmarks) {
-          drawer.drawLandmarks(lms, { radius: 4 });
-          drawer.drawConnectors(lms, PoseLandmarker.POSE_CONNECTIONS);
-        }
-      }
+      running = true;
       requestAnimationFrame(loop);
     }
 
+    /* ③ 主循环（不要用 currentTime 判断） */
+    async function loop() {
+      if (!running || !poseLandmarker) return;
+
+      const result = await poseLandmarker.detectForVideo(
+        video,
+        performance.now()
+      );
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (result.landmarks.length > 0) {
+        for (const landmarks of result.landmarks) {
+          drawUtils.drawLandmarks(landmarks, { radius: 4 });
+          drawUtils.drawConnectors(
+            landmarks,
+            PoseLandmarker.POSE_CONNECTIONS
+          );
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    /* ④ 按钮（严格用户手势） */
     initPose().then(() => {
       startBtn.onclick = async () => {
         if (!running) {
           startBtn.innerText = "STOP";
           await startCamera();
         } else {
+          running = false;
+          video.srcObject?.getTracks().forEach(t => t.stop());
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
           startBtn.innerText = "START";
-          stopCamera();
-        }
-      };
-
-      switchBtn.onclick = async () => {
-        facingMode = facingMode === "user" ? "environment" : "user";
-        if (running) {
-          stopCamera();
-          await startCamera();
         }
       };
     });
