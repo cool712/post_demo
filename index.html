@@ -77,7 +77,6 @@
 
     /* ================== 工具函数 ================== */
 
-    // 归一化坐标 → canvas 坐标
     function toCanvas(p) {
       return {
         x: mirror ? (1 - p.x) * canvas.width : p.x * canvas.width,
@@ -85,7 +84,6 @@
       };
     }
 
-    // 计算三点夹角（单位：度）
     function calcAngle(a, b, c) {
       const ab = { x: a.x - b.x, y: a.y - b.y };
       const cb = { x: c.x - b.x, y: c.y - b.y };
@@ -142,13 +140,26 @@
       video.srcObject = stream;
       await video.play();
 
-      // 设置 Canvas 尺寸
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // 视频镜像前置摄像头
+      // 镜像逻辑
       mirror = facingMode === "user";
       video.style.transform = mirror ? "rotateY(180deg)" : "none";
+
+      // 自动聚焦 (后置摄像头)
+      if (!mirror) {
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+          try {
+            await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+            console.log("后置摄像头自动聚焦开启");
+          } catch (err) {
+            console.warn("无法设置自动聚焦:", err);
+          }
+        }
+      }
 
       running = true;
       requestAnimationFrame(loop);
@@ -166,11 +177,7 @@
     async function loop() {
       if (!running) return;
 
-      const result = await poseLandmarker.detectForVideo(
-        video,
-        performance.now()
-      );
-
+      const result = await poseLandmarker.detectForVideo(video, performance.now());
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (result.landmarks.length) {
@@ -190,17 +197,12 @@
       ctx.lineWidth = 3;
 
       const bones = [
-        [11,13],[13,15], // 左臂
-        [12,14],[14,16], // 右臂
-        [23,25],[25,27], // 左腿
-        [24,26],[26,28], // 右腿
-        [11,12],[23,24],[11,23],[12,24] // 躯干
+        [11,13],[13,15], [12,14],[14,16],
+        [23,25],[25,27], [24,26],[26,28],
+        [11,12],[23,24],[11,23],[12,24]
       ];
 
-      bones.forEach(([a,b]) => {
-        drawLine(toCanvas(lm[a]), toCanvas(lm[b]));
-      });
-
+      bones.forEach(([a,b]) => drawLine(toCanvas(lm[a]), toCanvas(lm[b])));
       bones.flat().forEach(i => drawPoint(toCanvas(lm[i])));
 
       drawJointAngle(lm[11], lm[13], lm[15]); // 左肘
