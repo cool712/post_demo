@@ -1249,7 +1249,7 @@ declare interface ImageProcessingOptions {
      * The rotation to apply to the image (or cropped region-of-interest), in
      * degrees clockwise.
      *
-     * The rotation must be a multiple (positive or negative) of 90Â°.
+     * The rotation must be a multiple (positive or negative) of 90°.
      */
     rotationDegrees?: number;
 }
