@@ -31,7 +31,7 @@
       position: absolute;
       top: 12px;
       left: 12px;
-      color: #00ff66;
+      color: #4ec9b0;
       font-size: 14px;
       font-family: monospace;
       z-index: 10;
@@ -74,7 +74,7 @@
       return Math.acos(dot / (Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y))) * 180 / Math.PI;
     }
 
-    function drawPoint(p, r = 5) {
+    function drawPoint(p, r = 2) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fill();
@@ -179,9 +179,12 @@
       );
 
       lm.forEach(p => drawPoint(toCanvas(p)));
-
-      drawAngle(lm[11], lm[13], lm[15]);
-      drawAngle(lm[12], lm[14], lm[16]);
+      // ⭐ 四个关节角度
+      drawAngle(lm[11], lm[13], lm[15]); // 左肘
+      drawAngle(lm[12], lm[14], lm[16]); // 右肘
+      drawAngle(lm[23], lm[25], lm[27]); // 左膝
+      drawAngle(lm[24], lm[26], lm[28]); // 右膝
+    
 
       ctx.restore();
     }
