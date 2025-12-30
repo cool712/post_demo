@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Pose Detection - Rear Camera Auto</title>
+  <title>Pose Detection</title>
 
   <style>
     html, body {
@@ -26,10 +26,21 @@
     canvas {
       pointer-events: none;
     }
+
+    #tip {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      color: #00ff66;
+      font-size: 14px;
+      font-family: monospace;
+      z-index: 10;
+    }
   </style>
 </head>
 
 <body>
+  <div id="tip">Camera starting…</div>
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
 
@@ -42,9 +53,12 @@
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
+    const tip = document.getElementById("tip");
 
-    let poseLandmarker;
+    let poseLandmarker = null;
     let running = false;
+
+    /* ---------------- 工具函数 ---------------- */
 
     function toCanvas(p) {
       return {
@@ -60,7 +74,7 @@
       return Math.acos(dot / (Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y))) * 180 / Math.PI;
     }
 
-    function drawPoint(p, r = 6) {
+    function drawPoint(p, r = 5) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fill();
@@ -73,74 +87,82 @@
       ctx.stroke();
     }
 
+    /* ---------------- 摄像头优先启动 ---------------- */
+
+    async function startCamera() {
+      console.time("camera");
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 640 },   // ⭐ 降低分辨率 = 更快
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+
+      video.srcObject = stream;
+
+      await new Promise(r => video.onloadedmetadata = r);
+      await video.play();
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      running = true;
+      tip.textContent = "Camera ready";
+
+      console.timeEnd("camera");
+    }
+
+    /* ---------------- 后台加载 Pose ---------------- */
+
     async function initPose() {
+      console.time("pose");
+
       const vision = await FilesetResolver.forVisionTasks(
-        "/mediapipe/wasm"
+        "/mediapipe/wasm"   // ⭐ 本地 wasm 目录
       );
 
       poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath:
-            "/mediapipe/model/pose_landmarker_lite.task",
+          modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task",
           delegate: "CPU"
         },
         runningMode: "VIDEO",
         numPoses: 1
       });
+
+      tip.textContent = "Pose ready";
+      console.timeEnd("pose");
     }
 
-    async function startCamera() {
-      try {
-        console.log("request camera");
+    /* ---------------- AI 主循环（限帧） ---------------- */
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",   // ✅ 不用 exact
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        });
+    let lastAiTime = 0;
+    const AI_INTERVAL = 1000 / 15; // ⭐ 15 FPS
 
-        video.srcObject = stream;
+    function loop(ts) {
+      requestAnimationFrame(loop);
+      if (!running || !poseLandmarker) return;
+      if (ts - lastAiTime < AI_INTERVAL) return;
 
-        await new Promise(resolve => {
-          video.onloadedmetadata = () => resolve();
-        });
-
-        await video.play();
-
-        console.log("video size:", video.videoWidth, video.videoHeight);
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        running = true;
-        requestAnimationFrame(loop);
-
-      } catch (e) {
-        console.error("camera error:", e);
-      }
-    }
-
-    async function loop() {
-      if (!running) return;
-
-      const result = await poseLandmarker.detectForVideo(video, performance.now());
+      lastAiTime = ts;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (result.landmarks.length) {
-        drawPose(result.landmarks[0]);
-      }
+      const result = poseLandmarker.detectForVideo(video, ts);
+      if (!result.landmarks.length) return;
 
-      requestAnimationFrame(loop);
+      drawPose(result.landmarks[0]);
     }
+
+    /* ---------------- 绘制骨骼 ---------------- */
 
     function drawPose(lm) {
       ctx.save();
       ctx.strokeStyle = "#00FF66";
       ctx.fillStyle = "#00FF66";
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3;
 
       const bones = [
         [11,13],[13,15],[12,14],[14,16],
@@ -156,8 +178,6 @@
 
       drawAngle(lm[11], lm[13], lm[15]);
       drawAngle(lm[12], lm[14], lm[16]);
-      drawAngle(lm[23], lm[25], lm[27]);
-      drawAngle(lm[24], lm[26], lm[28]);
 
       ctx.restore();
     }
@@ -165,13 +185,15 @@
     function drawAngle(a, b, c) {
       const angle = Math.round(calcAngle(a, b, c));
       const p = toCanvas(b);
-      ctx.font = "14px Arial";
+      ctx.font = "12px monospace";
       ctx.fillText(`${angle}°`, p.x + 6, p.y - 6);
     }
 
-    // ✅ 页面加载即启动
-    await initPose();
-    await startCamera();
+    /* ---------------- 启动 ---------------- */
+
+    startCamera();   // ⭐ 不等待，先亮画面
+    initPose();      // ⭐ 后台慢慢加载
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
