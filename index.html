@@ -53,7 +53,7 @@
   <canvas id="canvas"></canvas>
 
   <div class="controls">
-    <button id="startBtn">START</button>
+    <button id="startBtn">STOP</button>
     <button id="switchBtn">SWITCH</button>
   </div>
 
@@ -72,8 +72,10 @@
 
     let poseLandmarker;
     let running = false;
-    let facingMode = "user";
-    let mirror = true;
+
+    // ✅ 默认后置摄像头
+    let facingMode = "environment";
+    let mirror = false;
 
     function toCanvas(p) {
       return {
@@ -88,8 +90,7 @@
       const dot = ab.x * cb.x + ab.y * cb.y;
       const magAB = Math.hypot(ab.x, ab.y);
       const magCB = Math.hypot(cb.x, cb.y);
-      let angle = Math.acos(dot / (magAB * magCB));
-      return (angle * 180) / Math.PI;
+      return Math.acos(dot / (magAB * magCB)) * 180 / Math.PI;
     }
 
     function drawPoint(p, radius = 8) {
@@ -129,7 +130,7 @@
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: facingMode,
+          facingMode: { exact: facingMode },
           width: { ideal: 1920 },
           height: { ideal: 1080 }
         }
@@ -143,19 +144,6 @@
 
       mirror = facingMode === "user";
       video.style.transform = mirror ? "rotateY(180deg)" : "none";
-
-      if (!mirror) {
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
-        if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
-          try {
-            await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
-            console.log("后置摄像头自动聚焦开启");
-          } catch (err) {
-            console.warn("无法设置自动聚焦:", err);
-          }
-        }
-      }
 
       running = true;
       requestAnimationFrame(loop);
@@ -187,58 +175,51 @@
       ctx.fillStyle = "#00FF66";
       ctx.lineWidth = 6;
 
-      // 躯干、手臂、腿骨架
       const bones = [
         [11,13],[13,15],[12,14],[14,16],
         [23,25],[25,27],[24,26],[26,28],
         [11,12],[23,24],[11,23],[12,24]
       ];
 
-      // 头部骨架连接：鼻子(0) -> 颈部/肩膀中点, 鼻子 -> 双眼, 双眼 -> 双耳
       const headBones = [
-        [11,0],[12,0], // 左肩-鼻子, 右肩-鼻子
-        [0,1],[0,2],[0,3],[0,4],[0,5],[0,6], // 鼻子到眼睛
-        [1,2],[4,5],[2,3],[5,6],[7,1],[8,4] // 眼睛到耳朵
+        [11,0],[12,0],[0,1],[0,2],[1,2],[4,5]
       ];
 
-      bones.concat(headBones).forEach(([a,b]) => drawLine(toCanvas(lm[a]), toCanvas(lm[b])));
+      bones.concat(headBones)
+        .forEach(([a,b]) => drawLine(toCanvas(lm[a]), toCanvas(lm[b])));
 
-      // 绘制所有关键点
       lm.forEach(p => drawPoint(toCanvas(p)));
 
-      // 绘制关节角度（常用关节）
-      drawJointAngle(lm[11], lm[13], lm[15]); // 左肘
-      drawJointAngle(lm[12], lm[14], lm[16]); // 右肘
-      drawJointAngle(lm[23], lm[25], lm[27]); // 左膝
-      drawJointAngle(lm[24], lm[26], lm[28]); // 右膝
+      drawJointAngle(lm[11], lm[13], lm[15]);
+      drawJointAngle(lm[12], lm[14], lm[16]);
+      drawJointAngle(lm[23], lm[25], lm[27]);
+      drawJointAngle(lm[24], lm[26], lm[28]);
 
       ctx.restore();
     }
 
     function drawJointAngle(a, b, c) {
-      const angle = calcAngle(a, b, c);
-      const p = toCanvas(b);
-      drawAngleText(`${Math.round(angle)}°`, p);
+      drawAngleText(`${Math.round(calcAngle(a, b, c))}°`, toCanvas(b));
     }
 
+    // ✅ 页面加载即启动后置摄像头
     await initPose();
+    await startCamera();
 
     startBtn.onclick = async () => {
-      if (!running) {
-        startBtn.innerText = "STOP";
-        await startCamera();
-      } else {
+      if (running) {
         startBtn.innerText = "START";
         stopCamera();
+      } else {
+        startBtn.innerText = "STOP";
+        await startCamera();
       }
     };
 
     switchBtn.onclick = async () => {
       facingMode = facingMode === "user" ? "environment" : "user";
-      if (running) {
-        stopCamera();
-        await startCamera();
-      }
+      stopCamera();
+      await startCamera();
     };
   </script>
 </body>
