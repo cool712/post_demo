@@ -95,10 +95,10 @@
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
-          // width: { ideal: 1280 },   // ⭐ 降低分辨率 = 更快
-          // height: { ideal: 720 },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 1280 },   // ⭐ 降低分辨率 = 更快
+          height: { ideal: 720 },
+          // width: { ideal: 1920 },
+          // height: { ideal: 1080 },
           focusMode: "continuous"
         },
         audio: false
