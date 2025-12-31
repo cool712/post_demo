@@ -118,7 +118,7 @@ window.stopAndUpload = async function (uploadUrl, token) {
       // tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
       const response = await fetch(uploadUrl, {
     method: "POST",
-    headers: { "Authorization": `Bearer ${token}` },
+    // headers: { "Authorization": `Bearer ${token}` },
     body: formData
   });
 
