@@ -82,15 +82,25 @@ window.stopAndSubmit = async function () {
   mediaRecorder.onstop = async () => {
     recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
 
-    const arrayBuffer = await recordedBlob.arrayBuffer();
-    const base64 = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    );
+    // const arrayBuffer = await recordedBlob.arrayBuffer();
+    // const base64 = btoa(
+    //   String.fromCharCode(...new Uint8Array(arrayBuffer))
+    // );
 
-    // ⭐ 回传 Flutter
+    // // ⭐ 回传 Flutter
+    // window.flutter_inappwebview.callHandler(
+    //   "onVideoRecorded",
+    //   base64
+    // );
+    
+    // ⭐ 不再 base64
+    const buffer = await blob.arrayBuffer();
+    const uint8Array = new Uint8Array(buffer);
+
+    // ⭐ 直接回传 bytes（flutter_inappwebview 支持）
     window.flutter_inappwebview.callHandler(
       "onVideoRecorded",
-      base64
+      Array.from(uint8Array)
     );
   };
 };
