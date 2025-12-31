@@ -45,57 +45,85 @@
   <canvas id="canvas"></canvas>
 
   <script type="module">
-    // 录制视频相关
-    let mediaRecorder;
-    let recordedChunks = [];
-    let recordedBlob = null;
-    window.startRecord = async function () {
-     if (!video.srcObject) {
-       console.warn("No stream");
-       return;
-     }
+    /* ---------------- 录制与上传逻辑 ---------------- */
+let mediaRecorder;
+let recordedChunks = [];
+let startTime;
+let duration = 0;
 
-     recordedChunks = [];
+// 1. 开始录制
+window.startRecord = async function () {
+  if (!video.srcObject) return;
+  recordedChunks = [];
+  
+  const mimeType = MediaRecorder.isTypeSupported("video/mp4") 
+                   ? "video/mp4" 
+                   : "video/webm;codecs=vp8";
 
-     mediaRecorder = new MediaRecorder(video.srcObject, {
-       mimeType: "video/webm;codecs=vp8"
-     });
-
-     mediaRecorder.ondataavailable = e => {
-       if (e.data.size > 0) recordedChunks.push(e.data);
-     };
-
-     mediaRecorder.start();
-     console.log("Recording started");
-   };
-   window.pauseRecord = function () {
-  if (mediaRecorder && mediaRecorder.state === "recording") {
-    mediaRecorder.pause();
-    console.log("Recording paused");
-  }
-};
-window.stopAndSubmit = async function () {
-  if (!mediaRecorder) return;
-
-  // 1. 先定义好停止后的处理逻辑
-  mediaRecorder.onstop = async () => {
-    // 注意：这里要用上面定义的 recordedChunks
-    const blob = new Blob(recordedChunks, { type: "video/webm" });
-
-    // 2. 将 Blob 转为 ArrayBuffer
-    const buffer = await blob.arrayBuffer();
-    const uint8Array = new Uint8Array(buffer);
-
-    // 3. 这里的变量名必须对应，且建议直接传递，不用 Array.from
-    // flutter_inappwebview 会自动序列化 Uint8Array
-    window.flutter_inappwebview.callHandler(
-      "onVideoRecorded",
-      uint8Array // 直接传 uint8Array 性能更好
-    );
-    console.log("Video sent to Flutter, size:", uint8Array.length);
+  mediaRecorder = new MediaRecorder(video.srcObject, { mimeType });
+  
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
   };
 
-  // 2. 触发停止
+  startTime = Date.now();
+  mediaRecorder.start();
+  console.log("Recording started");
+};
+
+// 2. 暂停/恢复录制
+window.pauseRecord = function () {
+  if (!mediaRecorder) return;
+  if (mediaRecorder.state === "recording") {
+    mediaRecorder.pause();
+    // 暂停时可以累计已录制时间（此处简化处理，假设为连续录制）
+  } else if (mediaRecorder.state === "paused") {
+    mediaRecorder.resume();
+  }
+};
+
+// 3. 停止并上传 (由 Flutter 调用并传入 Token 和 URL)
+window.stopAndUpload = async function (uploadUrl, token) {
+  if (!mediaRecorder) return;
+
+  mediaRecorder.onstop = async () => {
+    duration = (Date.now() - startTime) / 1000;
+    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+    
+    // 构建表单数据
+    const formData = new FormData();
+    // 生成一个文件名，如果是 WebM 建议后缀写 .webm
+    const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
+    formData.append("file", blob, `record_${Date.now()}.${ext}`);
+    formData.append("duration", duration);
+
+    try {
+      tip.textContent = "Uploading...";
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}` // 传入 Flutter 提供的 Token
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      // 通知 Flutter 上传成功
+      window.flutter_inappwebview.callHandler("onUploadComplete", {
+        success: response.ok,
+        data: result,
+        duration: duration
+      });
+      
+      tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
+    } catch (err) {
+      console.error("Upload Error:", err);
+      window.flutter_inappwebview.callHandler("onUploadComplete", { success: false, error: err.message });
+      tip.textContent = "Upload Error";
+    }
+  };
+
   mediaRecorder.stop();
 };
 //
