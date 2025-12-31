@@ -3,17 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Pose Detection - Pro Switch</title>
+  <title>Pose Detection Pro</title>
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: black; overflow: hidden; }
     video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    /* 镜像样式 */
     .mirror { transform: scaleX(-1); -webkit-transform: scaleX(-1); }
     canvas { pointer-events: none; z-index: 5; }
-    #tip { position: absolute; top: 12px; left: 12px; color: #4ec9b0; font-size: 12px; font-family: monospace; z-index: 10; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; }
+    #tip { 
+      position: absolute; top: 12px; left: 12px; color: #4ec9b0; 
+      font-size: 12px; font-family: monospace; z-index: 10; 
+      background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; 
+    }
   </style>
 </head>
 <body>
-  <div id="tip">AI System Initializing...</div>
+  <div id="tip">System Initializing...</div>
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
 
@@ -29,81 +34,91 @@
     let running = false;
     let currentFacingMode = "user"; 
 
-    /* ---------------- 给 Flutter 调用的接口 ---------------- */
+    /* ---------------- 供 Flutter 调用的核心接口 ---------------- */
 
     window.toggleCamera = async function() {
-      currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
-      const result = await startCamera();
-      return result; // 返回 "user" 或 "environment" 给 Flutter
+      try {
+        currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+        console.log("Switching to:", currentFacingMode);
+        
+        const status = await startCamera();
+        return status; // 正常返回 "user" 或 "environment"
+      } catch (e) {
+        console.error("Toggle error:", e);
+        return "ERROR: " + e.message; // 发生异常时返回具体错误信息，不再返回空值
+      }
     };
 
-    /* ---------------- 核心：启动/切换摄像头 ---------------- */
+    /* ---------------- 启动/切换摄像头逻辑 ---------------- */
     async function startCamera() {
       running = false; 
-      tip.textContent = "Switching Camera...";
+      tip.textContent = "Hardware: Waiting...";
 
-      // 1. 彻底停止所有旧轨道 (防止硬件锁死)
+      // 1. 彻底释放旧硬件 (防止 NotReadableError)
       if (video.srcObject) {
         const tracks = video.srcObject.getTracks();
-        tracks.forEach(track => {
-          track.stop();
-          track.enabled = false;
-        });
+        tracks.forEach(track => track.stop());
         video.srcObject = null;
         video.pause();
-        video.load(); // 强制释放
       }
 
-      // 2. 给予硬件 400ms 缓冲时间
-      await new Promise(r => setTimeout(r, 400));
+      // 2. 给予硬件足够的冷却时间
+      await new Promise(r => setTimeout(r, 600));
 
-      const constraints = [
-        { video: { facingMode: { exact: currentFacingMode }, width: { ideal: 1280 } } },
-        { video: { facingMode: currentFacingMode } },
-        { video: true }
-      ];
-
-      for (const constraint of constraints) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia(constraint);
-          video.srcObject = stream;
-          
-          // 3. 处理镜像：仅前置(user)需要镜像
-          if (currentFacingMode === "user") {
-            video.classList.add("mirror");
-            canvas.classList.add("mirror");
-          } else {
-            video.classList.remove("mirror");
-            canvas.classList.remove("mirror");
-          }
-
-          await video.play();
-
-          // 4. ⭐ 关键：同步画布尺寸，修复后置动作捕捉消失的问题
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          
-          running = true;
-          tip.textContent = `Active: ${currentFacingMode}`;
-          return currentFacingMode;
-        } catch (e) {
-          console.warn("Retrying constraints...", e);
+      try {
+        // 3. 请求媒体流
+        const constraints = { 
+          video: { 
+            facingMode: currentFacingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        
+        // 4. 设置镜像和 UI
+        if (currentFacingMode === "user") {
+          video.classList.add("mirror");
+          canvas.classList.add("mirror");
+        } else {
+          video.classList.remove("mirror");
+          canvas.classList.remove("mirror");
         }
+
+        await video.play();
+
+        // 5. 重要：同步 Canvas 尺寸，否则动作捕捉点会偏移
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        running = true;
+        tip.textContent = `Active: ${currentFacingMode}`;
+        return currentFacingMode;
+      } catch (err) {
+        tip.textContent = "Camera Error: " + err.name;
+        throw err; // 将错误抛给 toggleCamera 捕获
       }
-      tip.textContent = "Switch Failed";
-      return "error";
     }
 
-    /* ---------------- AI 逻辑 ---------------- */
+    /* ---------------- AI 检测逻辑 ---------------- */
     async function initPose() {
-      const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-      poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task", delegate: "GPU" },
-        runningMode: "VIDEO",
-        numPoses: 1
-      });
-      tip.textContent = "AI Ready";
-      requestAnimationFrame(loop);
+      try {
+        const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { 
+            modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task", 
+            delegate: "GPU" 
+          },
+          runningMode: "VIDEO",
+          numPoses: 1
+        });
+        tip.textContent = "AI Ready";
+        requestAnimationFrame(loop);
+      } catch (e) {
+        tip.textContent = "AI Init Failed";
+      }
     }
 
     function loop(ts) {
@@ -117,37 +132,26 @@
       requestAnimationFrame(loop);
     }
 
+    /* ---------------- 绘图工具 ---------------- */
     function toCanvas(p) { return { x: p.x * canvas.width, y: p.y * canvas.height }; }
-    
+
     function drawPose(lm) {
       ctx.save();
-      ctx.strokeStyle = "#4ec9b0";
-      ctx.lineWidth = 4;
-      const bones = [[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[24,26],[26,28],[11,12],[23,24],[11,23],[12,24]];
+      ctx.strokeStyle = "#4ec9b0"; ctx.lineWidth = 4;
+      // 简化版骨架绘制
+      const bones = [[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[24,26],[26,28],[11,12],[23,24]];
       bones.forEach(([a,b]) => {
         const p1 = toCanvas(lm[a]), p2 = toCanvas(lm[b]);
         ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
       });
-      // 绘制角度
-      [[11,13,15], [12,14,16], [23,25,27], [24,26,28]].forEach(([a,b,c]) => {
-        const angle = Math.round(calcAngle(lm[a], lm[b], lm[c]));
-        const p = toCanvas(lm[b]);
-        ctx.font = "bold 16px monospace"; ctx.fillStyle = "#4ec9b0";
-        ctx.fillText(`${angle}°`, p.x + 10, p.y - 10);
-      });
       ctx.restore();
     }
 
-    function calcAngle(a, b, c) {
-      const ab = { x: a.x - b.x, y: a.y - b.y }, cb = { x: c.x - b.x, y: c.y - b.y };
-      const dot = ab.x * cb.x + ab.y * cb.y;
-      return Math.acos(dot / (Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y))) * 180 / Math.PI;
-    }
-
+    // 初始化
     startCamera();
     initPose();
 
-    /* --- 录制逻辑 --- */
+    /* --- 录制接口 --- */
     let mediaRecorder; let recordedChunks = [];
     window.startRecord = function() {
       recordedChunks = [];
