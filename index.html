@@ -77,32 +77,26 @@
 window.stopAndSubmit = async function () {
   if (!mediaRecorder) return;
 
-  mediaRecorder.stop();
-
+  // 1. 先定义好停止后的处理逻辑
   mediaRecorder.onstop = async () => {
-    recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+    // 注意：这里要用上面定义的 recordedChunks
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
 
-    // const arrayBuffer = await recordedBlob.arrayBuffer();
-    // const base64 = btoa(
-    //   String.fromCharCode(...new Uint8Array(arrayBuffer))
-    // );
-
-    // // ⭐ 回传 Flutter
-    // window.flutter_inappwebview.callHandler(
-    //   "onVideoRecorded",
-    //   base64
-    // );
-    
-    // ⭐ 不再 base64
+    // 2. 将 Blob 转为 ArrayBuffer
     const buffer = await blob.arrayBuffer();
     const uint8Array = new Uint8Array(buffer);
 
-    // ⭐ 直接回传 bytes（flutter_inappwebview 支持）
+    // 3. 这里的变量名必须对应，且建议直接传递，不用 Array.from
+    // flutter_inappwebview 会自动序列化 Uint8Array
     window.flutter_inappwebview.callHandler(
       "onVideoRecorded",
-      Array.from(uint8Array)
+      uint8Array // 直接传 uint8Array 性能更好
     );
+    console.log("Video sent to Flutter, size:", uint8Array.length);
   };
+
+  // 2. 触发停止
+  mediaRecorder.stop();
 };
 //
 
