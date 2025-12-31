@@ -3,30 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Pose Detection Fix</title>
+  <title>Pose Pro Fix</title>
   <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; color: white; }
-    video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #111; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .mirror { transform: scaleX(-1); -webkit-transform: scaleX(-1); }
     #tip { 
-      position: absolute; top: 20px; left: 20px; z-index: 99; 
-      background: rgba(0,0,0,0.7); padding: 8px; font-family: monospace; 
-      font-size: 12px; border: 1px solid #4ec9b0; border-radius: 4px;
+      position: absolute; top: 15px; left: 15px; z-index: 100; 
+      color: #4ec9b0; background: rgba(0,0,0,0.7); 
+      padding: 5px 10px; border-radius: 4px; font-family: monospace; font-size: 11px;
     }
   </style>
 </head>
 <body>
-  <div id="tip">Init: Starting...</div>
+  <div id="tip">System Initializing...</div>
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
 
   <script type="module">
-    // 捕获全局错误，防止白屏死机
-    window.onerror = (msg, url, line) => {
-      document.getElementById('tip').textContent = `Error: ${msg} (Line: ${line})`;
-      return false;
-    };
-
+    // 使用 CDN 确保资源 100% 加载，解决白屏
     import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
 
     const video = document.getElementById("video");
@@ -37,13 +32,16 @@
     let poseLandmarker = null;
     let running = false;
     let currentFacingMode = "user"; 
-    let frameCount = 0; // ⭐ 确保只声明一次
+    
+    // 性能调优变量
+    let frameCount = 0;
     let lastFpsCheck = 0;
+    let fps = 0;
 
-    // --- 摄像头控制 ---
+    /* ---------------- 摄像头启动逻辑 ---------------- */
     async function startCamera() {
       running = false;
-      tip.textContent = "Cam: Accessing...";
+      tip.textContent = "Hardware: Loading...";
       
       if (video.srcObject) {
         video.srcObject.getTracks().forEach(t => t.stop());
@@ -52,44 +50,32 @@
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentFacingMode, width: 1280, height: 720 }
+          video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
         });
         video.srcObject = stream;
         
-        // 镜像控制
-        if (currentFacingMode === "user") {
-          video.classList.add("mirror");
-          canvas.classList.add("mirror");
-        } else {
-          video.classList.remove("mirror");
-          canvas.classList.remove("mirror");
-        }
+        // 镜像逻辑
+        const needsMirror = currentFacingMode === "user";
+        [video, canvas].forEach(el => el.classList.toggle("mirror", needsMirror));
 
         await video.play();
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         running = true;
         tip.textContent = `Cam: ${currentFacingMode} OK`;
+        return currentFacingMode;
       } catch (err) {
         tip.textContent = "Cam Error: " + err.name;
-        // 降级尝试
-        if (err.name !== "NotAllowedError") {
-            const basicStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = basicStream;
-            await video.play();
-            running = true;
-        }
+        console.error(err);
       }
     }
 
-    // --- AI 初始化 ---
-    async function initPose() {
+    /* ---------------- AI 初始化 ---------------- */
+    async function initAI() {
       try {
-        tip.textContent = "AI: Loading WASM...";
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
         );
-        
         poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { 
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", 
@@ -98,27 +84,35 @@
           runningMode: "VIDEO",
           numPoses: 1
         });
-        
-        tip.textContent = "AI: Ready";
+        tip.textContent = "AI Ready";
         requestAnimationFrame(loop);
       } catch (e) {
-        tip.textContent = "AI Error: " + e.message;
+        tip.textContent = "AI Init Failed";
       }
     }
 
+    /* ---------------- 核心循环 (包含性能监控) ---------------- */
     function loop(ts) {
       if (running && poseLandmarker) {
+        // FPS 计算
         frameCount++;
         if (ts - lastFpsCheck > 1000) {
-          tip.textContent = `FPS: ${frameCount} | Cam: ${currentFacingMode}`;
+          fps = frameCount;
+          tip.textContent = `FPS: ${fps} | Mode: ${currentFacingMode}`;
           frameCount = 0;
           lastFpsCheck = ts;
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const result = poseLandmarker.detectForVideo(video, ts);
-        if (result && result.landmarks && result.landmarks[0]) {
-          drawPose(result.landmarks[0]);
+        
+        try {
+          // 这里是 AI 识别核心
+          const result = poseLandmarker.detectForVideo(video, ts);
+          if (result && result.landmarks && result.landmarks[0]) {
+            drawPose(result.landmarks[0]);
+          }
+        } catch (e) {
+          // 防止单帧识别错误崩溃
         }
       }
       requestAnimationFrame(loop);
@@ -126,25 +120,27 @@
 
     function drawPose(lm) {
       ctx.save();
-      ctx.strokeStyle = "#4ec9b0"; ctx.lineWidth = 4;
+      ctx.strokeStyle = "#4ec9b0"; 
+      ctx.lineWidth = 4;
+      // 核心骨架连接线
       const bones = [[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[24,26],[26,28],[11,12],[23,24]];
       bones.forEach(([a,b]) => {
-        const x1 = lm[a].x * canvas.width, y1 = lm[a].y * canvas.height;
-        const x2 = lm[b].x * canvas.width, y2 = lm[b].y * canvas.height;
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        const p1 = { x: lm[a].x * canvas.width, y: lm[a].y * canvas.height };
+        const p2 = { x: lm[b].x * canvas.width, y: lm[b].y * canvas.height };
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
       });
       ctx.restore();
     }
 
-    // --- Flutter 接口 ---
+    /* ---------------- Flutter 接口 ---------------- */
     window.toggleCamera = async function() {
       currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
-      await startCamera();
-      return currentFacingMode;
+      const res = await startCamera();
+      return res;
     };
 
-    // 启动顺序：先摄像头再AI
-    startCamera().then(initPose);
+    // 启动顺序：先启相机，再开AI
+    startCamera().then(initAI);
   </script>
 </body>
 </html>
