@@ -45,6 +45,58 @@
   <canvas id="canvas"></canvas>
 
   <script type="module">
+    // 录制视频相关
+    let mediaRecorder;
+    let recordedChunks = [];
+    let recordedBlob = null;
+    window.startRecord = async function () {
+     if (!video.srcObject) {
+       console.warn("No stream");
+       return;
+     }
+
+     recordedChunks = [];
+
+     mediaRecorder = new MediaRecorder(video.srcObject, {
+       mimeType: "video/webm;codecs=vp8"
+     });
+
+     mediaRecorder.ondataavailable = e => {
+       if (e.data.size > 0) recordedChunks.push(e.data);
+     };
+
+     mediaRecorder.start();
+     console.log("Recording started");
+   };
+   window.pauseRecord = function () {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.pause();
+    console.log("Recording paused");
+  }
+};
+window.stopAndSubmit = async function () {
+  if (!mediaRecorder) return;
+
+  mediaRecorder.stop();
+
+  mediaRecorder.onstop = async () => {
+    recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+
+    const arrayBuffer = await recordedBlob.arrayBuffer();
+    const base64 = btoa(
+      String.fromCharCode(...new Uint8Array(arrayBuffer))
+    );
+
+    // ⭐ 回传 Flutter
+    window.flutter_inappwebview.callHandler(
+      "onVideoRecorded",
+      base64
+    );
+  };
+};
+//
+
+
     import {
       PoseLandmarker,
       FilesetResolver
