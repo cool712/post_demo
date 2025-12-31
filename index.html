@@ -98,25 +98,39 @@ window.stopAndUpload = async function (uploadUrl, token) {
     formData.append("duration", duration);
 
     try {
-      tip.textContent = "Uploading...";
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}` // 传入 Flutter 提供的 Token
-        },
-        body: formData
-      });
+      // tip.textContent = "Uploading...";
+      // const response = await fetch(uploadUrl, {
+      //   method: "POST",
+      //   headers: {
+      //     "Authorization": `Bearer ${token}` // 传入 Flutter 提供的 Token
+      //   },
+      //   body: formData
+      // });
 
-      const result = await response.json();
+      // const result = await response.json();
       
-      // 通知 Flutter 上传成功
-      window.flutter_inappwebview.callHandler("onUploadComplete", {
-        success: response.ok,
-        data: result,
-        duration: duration
-      });
-      
-      tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
+      // // 通知 Flutter 上传成功
+      // window.flutter_inappwebview.callHandler("onUploadComplete", {
+      //   success: response.ok,
+      //   data: result,
+      //   duration: duration
+      // });
+      // tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
+      const response = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}` },
+    body: formData
+  });
+
+  // ⭐ 测试专用：Webhook.site 可能不返回 JSON
+  let resultText = await response.text(); 
+  console.log("Raw Response:", resultText);
+
+  window.flutter_inappwebview.callHandler("onUploadComplete", {
+    success: response.ok,
+    status: response.status,
+    duration: duration
+  });
     } catch (err) {
       console.error("Upload Error:", err);
       window.flutter_inappwebview.callHandler("onUploadComplete", { success: false, error: err.message });
