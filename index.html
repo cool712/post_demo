@@ -155,6 +155,18 @@ window.stopAndUpload = async function (uploadUrl, token) {
 
     let poseLandmarker = null;
     let running = false;
+	let currentFacingMode = "user"; 
+	
+	
+    /**
+     * 1. 自动切换摄像头 (前置 <-> 后置)
+     */
+    window.toggleCamera = function() {
+      currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+      startCamera();
+    };
+
+	
 
     /* ---------------- 工具函数 ---------------- */
 
@@ -190,30 +202,52 @@ window.stopAndUpload = async function (uploadUrl, token) {
 
     async function startCamera() {
       console.time("camera");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },   // ⭐ 降低分辨率 = 更快
-          height: { ideal: 720 },
-          // width: { ideal: 1920 },
-          // height: { ideal: 1080 },
-          focusMode: "continuous"
-        },
-        audio: false
-      });
+	   running = false; 
+	   tip.textContent = "Hardware Switching...";
+	    // 彻底清理旧流
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+	        // 给硬件 300ms 缓冲时间
+      await new Promise(r => setTimeout(r, 300));
+	  
+	    const constraints = [
+        { video: { facingMode: { exact: currentFacingMode }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } },
+        { video: true }
+      ];
 
-      video.srcObject = stream;
+   
+      for (const constraint of constraints) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraint);
+          video.srcObject = stream;
+          
+          // 处理镜像
+          if (currentFacingMode === "user") {
+            video.classList.add("mirror");
+            canvas.classList.add("mirror");
+          } else {
+            video.classList.remove("mirror");
+            canvas.classList.remove("mirror");
+          }
 
-      await new Promise(r => video.onloadedmetadata = r);
-      await video.play();
+          await new Promise(r => video.onloadedmetadata = r);
+          await video.play();
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      running = true;
-      tip.textContent = "Camera ready";
-
-      console.timeEnd("camera");
+          // 同步画布
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          running = true;
+          tip.textContent = `Camera: ${currentFacingMode}`;
+          return;
+        } catch (e) {
+          console.warn("Retrying constraints...", e);
+        }
+      }
+      tip.textContent = "Camera switch failed";
     }
 
     /* ---------------- 后台加载 Pose ---------------- */
