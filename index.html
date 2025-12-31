@@ -120,16 +120,35 @@
 
     function drawPose(lm) {
       ctx.save();
-      ctx.strokeStyle = "#4ec9b0"; 
-      ctx.lineWidth = 4;
-      // 核心骨架连接线
-      const bones = [[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[24,26],[26,28],[11,12],[23,24]];
-      bones.forEach(([a,b]) => {
-        const p1 = { x: lm[a].x * canvas.width, y: lm[a].y * canvas.height };
-        const p2 = { x: lm[b].x * canvas.width, y: lm[b].y * canvas.height };
-        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-      });
+      ctx.strokeStyle = "#4ec9b0";
+      ctx.fillStyle = "#ffffff";
+      ctx.lineWidth = 3;
+
+      const bones = [
+        [11,13],[13,15],[12,14],[14,16],
+        [23,25],[25,27],[24,26],[26,28],
+        [11,12],[23,24],[11,23],[12,24]
+      ];
+
+      bones.forEach(([a,b]) =>
+        drawLine(toCanvas(lm[a]), toCanvas(lm[b]))
+      );
+
+      lm.forEach(p => drawPoint(toCanvas(p)));
+      // ⭐ 四个关节角度
+      drawAngle(lm[11], lm[13], lm[15]); // 左肘
+      drawAngle(lm[12], lm[14], lm[16]); // 右肘
+      drawAngle(lm[23], lm[25], lm[27]); // 左膝
+      drawAngle(lm[24], lm[26], lm[28]); // 右膝
+    
+
       ctx.restore();
+    }
+	    function drawAngle(a, b, c) {
+      const angle = Math.round(calcAngle(a, b, c));
+      const p = toCanvas(b);
+      ctx.font = "12px monospace";
+      ctx.fillText(`${angle}°`, p.x + 6, p.y - 6);
     }
 
     /* ---------------- Flutter 接口 ---------------- */
