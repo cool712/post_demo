@@ -272,8 +272,8 @@ window.stopAndUpload = async function (uploadUrl, token) {
         numPoses: 1
       });
 
-      tip.textContent = "Pose ready";
-      console.timeEnd("pose");
+      tip.textContent = "AI Active";
+      requestAnimationFrame(loop);
     }
 
     /* ---------------- AI 主循环（限帧） ---------------- */
@@ -335,7 +335,7 @@ window.stopAndUpload = async function (uploadUrl, token) {
 
     startCamera();   // ⭐ 不等待，先亮画面
     initPose();      // ⭐ 后台慢慢加载
-    requestAnimationFrame(loop);
+    //requestAnimationFrame(loop);
   </script>
 </body>
 </html>
