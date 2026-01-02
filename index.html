@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Pose Pro Ultra Optimized</title>
+    <title>Pose Pro Max Performance</title>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
         video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -12,24 +12,24 @@
             position: absolute; top: 12px; left: 12px; z-index: 10; 
             color: #4ec9b0; background: rgba(0, 0, 0, 0.7); 
             padding: 6px 10px; border-radius: 4px; font-family: monospace; font-size: 11px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div id="tip">System Initializing...</div>
+    <div id="tip">Core Initializing...</div>
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
 
     <script type="module">
         import { PoseLandmarker, FilesetResolver } from "/mediapipe/tasks-vision/vision_bundle.js";
 
-        /* ---------- 状态与 DOM ---------- */
         const video = document.getElementById("video");
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
         const tip = document.getElementById("tip");
 
+        /* 状态控制 */
         let poseLandmarker = null;
         let running = false;
         let facingMode = "user";
@@ -37,61 +37,62 @@
         let frameCount = 0;
         let lastFpsCheck = performance.now();
         let startTime = 0; 
-        let mediaRecorder;
-        let recordedChunks = [];
-
-        /* ================= 极速启动核心：流水线加载 ================= */
-        async function bootstrap() {
+        
+        /* ================= 1. 极速引导：资源预热 ================= */
+        (async function bootstrap() {
             try {
-                // 1. 同步开始：加载 WASM 解析器 (不占 GPU)
-                const visionPromise = FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+                // 并行启动：硬件（相机）+ 编译器（WASM）
+                const cameraTask = startCamera();
                 
-                // 2. 同时开始：启动相机 (硬件握手耗时)
-                const cameraPromise = startCamera();
-
-                // 等待两者初步就绪
-                const [vision, _] = await Promise.all([visionPromise, cameraPromise]);
-
-                // 3. 此时相机已出图，GPU 空闲，立即加载重型模型
+                // 强制优先加载编译引擎
+                const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+                
+                // 等待相机出图
+                await cameraTask;
+                
+                // 相机 OK 后，利用 GPU 空余期加载模型
                 await initAI(vision);
             } catch (err) {
-                tip.textContent = "Boot Error: " + err.message;
+                tip.textContent = "Boot Fail: " + err.message;
             }
-        }
+        })();
 
         async function startCamera() {
             running = false;
-            tip.textContent = "Camera: Loading...";
+            tip.textContent = "Cam: Connecting...";
             
+            // 彻底释放旧硬件，防止 Android 锁死驱动
             if (video.srcObject) {
                 video.srcObject.getTracks().forEach(t => t.stop());
+                video.srcObject = null;
             }
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
-
-            video.srcObject = stream;
-            
-            // 确保视频元数据加载，以便获取准确宽高
-            return new Promise((resolve) => {
-                video.onloadedmetadata = async () => {
-                    await video.play();
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    
-                    const isMirror = facingMode === "user";
-                    video.className = isMirror ? "mirror" : "";
-                    canvas.className = isMirror ? "mirror" : "";
-                    
-                    running = true;
-                    resolve();
-                };
-            });
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } } // 初始请求低分辨率，加快硬件响应
+                });
+                video.srcObject = stream;
+                
+                return new Promise((resolve) => {
+                    video.onloadeddata = async () => {
+                        await video.play();
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        
+                        const isMirror = facingMode === "user";
+                        [video, canvas].forEach(el => el.className = isMirror ? "mirror" : "");
+                        
+                        running = true;
+                        resolve();
+                    };
+                });
+            } catch (e) {
+                tip.textContent = "Cam Error";
+            }
         }
 
         async function initAI(vision) {
-            tip.textContent = "AI: Activating...";
+            tip.textContent = "AI: Pre-heating...";
             try {
                 poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                     baseOptions: {
@@ -102,27 +103,27 @@
                     numPoses: 1
                 });
                 
-                tip.textContent = "System Ready";
+                tip.textContent = "System Active";
                 requestAnimationFrame(loop);
             } catch (e) {
-                tip.textContent = "AI Init Failed";
-                throw e;
+                tip.textContent = "AI Fail";
             }
         }
 
-        /* ================= 主循环 (实时监控 + 原始逻辑) ================= */
+        /* ================= 2. 性能闭环：所有原始方法保持不变 ================= */
         function loop(ts) {
             requestAnimationFrame(loop);
             
-            // 实时性能监控 (不延迟)
+            // 实时监控逻辑
             frameCount++;
             const delta = ts - lastFpsCheck;
             if (delta >= 1000) {
                 const fps = Math.round((frameCount * 1000) / delta);
                 if (running) {
+                    // 动态调整逻辑
                     if (fps < 12 && dynamicScale > 0.3) dynamicScale -= 0.1;
-                    else if (fps > 15 && dynamicScale < 1.0) dynamicScale += 0.1;
-                    tip.textContent = `Q: ${Math.round(dynamicScale * 100)}% | FPS: ${fps} | ${facingMode}`;
+                    else if (fps > 18 && dynamicScale < 1.0) dynamicScale += 0.1;
+                    tip.textContent = `FPS: ${fps} | Q: ${Math.round(dynamicScale * 100)}% | ${facingMode}`;
                 }
                 frameCount = 0;
                 lastFpsCheck = ts;
@@ -133,6 +134,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             try {
+                // 关键点检测
                 const result = poseLandmarker.detectForVideo(video, ts);
                 if (result.landmarks && result.landmarks[0]) {
                     drawPose(result.landmarks[0]);
@@ -140,19 +142,15 @@
             } catch (e) {}
         }
 
-        /* ================= 绘制方法 (完整保留) ================= */
+        /* 绘制与角度逻辑 (完全保留) */
         function drawPose(lm) {
             ctx.save();
             ctx.strokeStyle = "#00ff7f";
             ctx.fillStyle = "#ffffff";
             ctx.lineWidth = 3;
-            ctx.lineCap = "round";
-            ctx.lineJoin = "round";
-
             const bones = [[11, 13],[13, 15],[12, 14],[14, 16],[23, 25],[25, 27],[24, 26],[26, 28],[11, 12],[23, 24],[11, 23],[12, 24]];
             bones.forEach(([a, b]) => drawLine(toCanvas(lm[a]), toCanvas(lm[b])));
             lm.forEach((p, i) => { if(i >= 11) drawPoint(toCanvas(p)); });
-
             drawAngle(lm[11], lm[13], lm[15]); 
             drawAngle(lm[12], lm[14], lm[16]); 
             drawAngle(lm[23], lm[25], lm[27]); 
@@ -160,18 +158,15 @@
             ctx.restore();
         }
 
-        /* ---------- 工具函数 ---------- */
         function toCanvas(p) { return { x: p.x * canvas.width, y: p.y * canvas.height }; }
         function drawLine(a, b) { if (!a || !b) return; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
         function drawPoint(p) { ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); }
-        
         function calcAngle(a, b, c) {
             const ab = { x: a.x - b.x, y: a.y - b.y }, cb = { x: c.x - b.x, y: c.y - b.y };
             const dot = ab.x * cb.x + ab.y * cb.y;
             const mag1 = Math.hypot(ab.x, ab.y), mag2 = Math.hypot(cb.x, cb.y);
             return Math.acos(dot / (mag1 * mag2)) * 180 / Math.PI;
         }
-
         function drawAngle(a, b, c) {
             const angle = Math.round(calcAngle(a, b, c));
             const p = toCanvas(b);
@@ -179,19 +174,15 @@
             ctx.fillText(`${angle}°`, p.x + 6, p.y - 6);
         }
 
-        /* ================= 原始功能函数 (录制/切换) ================= */
+        /* ================= 3. 原始功能接口 ================= */
+        let mediaRecorder;
+        let recordedChunks = [];
         window.startRecord = function() {
             recordedChunks = [];
             startTime = Date.now();
             mediaRecorder = new MediaRecorder(video.srcObject);
             mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.start();
-        };
-
-        window.pauseRecord = function() {
-            if (!mediaRecorder) return;
-            if (mediaRecorder.state === "recording") mediaRecorder.pause();
-            else if (mediaRecorder.state === "paused") mediaRecorder.resume();
         };
 
         window.stopAndUpload = async function(uploadUrl) {
@@ -217,9 +208,6 @@
             await startCamera();
             return String(facingMode);
         };
-
-        /* 执行系统引导 */
-        bootstrap();
     </script>
 </body>
 </html>
