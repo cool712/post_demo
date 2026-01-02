@@ -240,11 +240,20 @@
 
 			/* ================= Flutter / 切摄像头 ================= */
 
-	window.toggleCamera = async () => {
-	            facingMode = (facingMode === "user") ? "environment" : "user";
-	            await startCamera();
-	            return facingMode;
-	        };
+		
+		    window.toggleCamera = async function() {
+		      try {
+		        facingMode = (facingMode === "user") ? "environment" : "user";
+		        console.log("Switching to:", facingMode);
+		        
+		        const status = await startCamera();
+		        return status; // 正常返回 "user" 或 "environment"
+		      } catch (e) {
+		        console.error("Toggle error:", e);
+		        return "ERROR: " + e.message; // 发生异常时返回具体错误信息，不再返回空值
+		      }
+		    };
+
 
 			/* --- 录制接口 --- */
 			let mediaRecorder;
