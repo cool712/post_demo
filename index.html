@@ -245,8 +245,91 @@
 				return facingMode;
 			};
 
+			/* --- 录制接口 --- */
+			let mediaRecorder;
+			let recordedChunks = [];
+			window.startRecord = function() {
+				recordedChunks = [];
+				mediaRecorder = new MediaRecorder(video.srcObject);
+				mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+				mediaRecorder.start();
+			};
+			// 2. 暂停/恢复录制
+			window.pauseRecord = function() {
+				if (!mediaRecorder) return;
+				if (mediaRecorder.state === "recording") {
+					mediaRecorder.pause();
+					// 暂停时可以累计已录制时间（此处简化处理，假设为连续录制）
+				} else if (mediaRecorder.state === "paused") {
+					mediaRecorder.resume();
+				}
+			};
+			// 3. 停止并上传 (由 Flutter 调用并传入 Token 和 URL)
+			window.stopAndUpload = async function(uploadUrl, token) {
+				if (!mediaRecorder) return;
+
+				mediaRecorder.onstop = async () => {
+					duration = (Date.now() - startTime) / 1000;
+					const blob = new Blob(recordedChunks, {
+						type: mediaRecorder.mimeType
+					});
+
+					// 构建表单数据
+					const formData = new FormData();
+					// 生成一个文件名，如果是 WebM 建议后缀写 .webm
+					const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
+					formData.append("file", blob, `record_${Date.now()}.${ext}`);
+					formData.append("duration", duration);
+
+					try {
+						// tip.textContent = "Uploading...";
+						// const response = await fetch(uploadUrl, {
+						//   method: "POST",
+						//   headers: {
+						//     "Authorization": `Bearer ${token}` // 传入 Flutter 提供的 Token
+						//   },
+						//   body: formData
+						// });
+
+						// const result = await response.json();
+
+						// // 通知 Flutter 上传成功
+						// window.flutter_inappwebview.callHandler("onUploadComplete", {
+						//   success: response.ok,
+						//   data: result,
+						//   duration: duration
+						// });
+						// tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
+						const response = await fetch(uploadUrl, {
+							method: "POST",
+							// headers: { "Authorization": `Bearer ${token}` },
+							body: formData
+						});
+
+						// ⭐ 测试专用：Webhook.site 可能不返回 JSON
+						let resultText = await response.text();
+						console.log("Raw Response:", resultText);
+
+						window.flutter_inappwebview.callHandler("onUploadComplete", {
+							success: response.ok,
+							status: response.status,
+							duration: duration
+						});
+					} catch (err) {
+						console.error("Upload Error:", err);
+						window.flutter_inappwebview.callHandler("onUploadComplete", {
+							success: false,
+							error: err.message
+						});
+						tip.textContent = "Upload Error";
+					}
+				};
+
+				mediaRecorder.stop();
+			};
+			//L
 			/* ================= 启动 ================= */
-			 startCamera();
+			startCamera();
 			initAI();
 		</script>
 	</body>
