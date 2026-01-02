@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 	<head>
@@ -70,11 +69,10 @@
 			let facingMode = "user";
 
 			/* ---------- FPS ---------- */
-
-			// 动态调整参数
-			let dynamicScale = 0.5; // 初始识别分辨率比例 (0.1 ~ 1.0)
 			let frameCount = 0;
-			let lastFpsCheck = 0;
+			let lastTime = 0;
+			let fps = 0;
+
 			/* ================= 摄像头 ================= */
 			async function startCamera() {
 				running = false;
@@ -133,31 +131,26 @@
 
 			/* ================= 主循环 ================= */
 			function loop(ts) {
+				if (running && poseLandmarker) {
+					frameCount++;
+					if (ts - lastTime > 1000) {
+						fps = frameCount;
+						frameCount = 0;
+						lastTime = ts;
+						tip.textContent = `FPS: ${fps} | ${facingMode}`;
+					}
+
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					try {
+						const res = poseLandmarker.detectForVideo(video, ts);
+						if (res.landmarks && res.landmarks[0]) {
+							drawPose(res.landmarks[0]);
+						}
+					} catch (_) {}
+				}
+
 				requestAnimationFrame(loop);
-				  if (!running || !poseLandmarker) return;
-				  // 性能监控：每 30 帧检查一次处理速度
-				  frameCount++;
-				  if (ts - lastFpsCheck > 1000) {
-				    const fps = frameCount;
-				    // 如果 FPS 低于 12，降低内部识别分辨率（最小 0.3）
-				    if (fps < 12 && dynamicScale > 0.3) dynamicScale -= 0.1;
-				    // 如果 FPS 高于 14，且还有提升空间，增加分辨率（最大 1.0）
-				    else if (fps > 14 && dynamicScale < 1.0) dynamicScale += 0.1;
-				    
-				    tip.textContent = `Quality: ${Math.round(dynamicScale * 100)}% | FPS: ${fps}`;
-				    frameCount = 0;
-				    lastFpsCheck = ts;
-				  }
-				  ctx.clearRect(0, 0, canvas.width, canvas.height);
-				  
-				  // 动态清晰度处理：
-				  // 我们通过控制 detectForVideo 的输入源尺寸或频率来实现
-				  // 这里采用 MediaPipe 内部的视频帧处理
-				  const result = poseLandmarker.detectForVideo(video, ts);
-				  
-				  if (result.landmarks.length > 0) {
-				    drawPose(result.landmarks[0]);
-				  }
 			}
 
 			/* ================= 绘制 ================= */
@@ -339,7 +332,7 @@
 			/* ================= 启动 ================= */
 			startCamera();
 			initAI();
-			
 		</script>
 	</body>
 </html>
+
