@@ -1,228 +1,253 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Pose Pro Fixed</title>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+		<title>Pose Pro Fixed</title>
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				background: #000;
+				overflow: hidden;
+			}
 
-    video, canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+			video,
+			canvas {
+				position: absolute;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+			}
 
-    .mirror {
-      transform: scaleX(-1);
-      -webkit-transform: scaleX(-1);
-    }
+			.mirror {
+				transform: scaleX(-1);
+				-webkit-transform: scaleX(-1);
+			}
 
-    #tip {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      z-index: 10;
-      color: #4ec9b0;
-      background: rgba(0,0,0,0.7);
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 12px;
-    }
-  </style>
-</head>
+			#tip {
+				position: absolute;
+				top: 12px;
+				left: 12px;
+				z-index: 10;
+				color: #4ec9b0;
+				background: rgba(0, 0, 0, 0.7);
+				padding: 6px 10px;
+				border-radius: 4px;
+				font-family: monospace;
+				font-size: 12px;
+			}
+		</style>
+	</head>
 
-<body>
-  <div id="tip">Initializing...</div>
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas"></canvas>
+	<body>
+		<div id="tip">Initializing...</div>
+		<video id="video" autoplay playsinline muted></video>
+		<canvas id="canvas"></canvas>
 
-<script type="module">
-import { PoseLandmarker, FilesetResolver } 
-from "/mediapipe/tasks-vision/vision_bundle.js";
+		<script type="module">
+			import {
+				PoseLandmarker,
+				FilesetResolver
+			}
+			from "/mediapipe/tasks-vision/vision_bundle.js";
 
-/* ---------- DOM ---------- */
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const tip = document.getElementById("tip");
+			/* ---------- DOM ---------- */
+			const video = document.getElementById("video");
+			const canvas = document.getElementById("canvas");
+			const ctx = canvas.getContext("2d");
+			const tip = document.getElementById("tip");
 
-/* ---------- 状态 ---------- */
-let poseLandmarker = null;
-let running = false;
-let facingMode = "user";
+			/* ---------- 状态 ---------- */
+			let poseLandmarker = null;
+			let running = false;
+			let facingMode = "user";
 
-/* ---------- FPS ---------- */
-let frameCount = 0;
-let lastTime = 0;
-let fps = 0;
+			/* ---------- FPS ---------- */
+			let frameCount = 0;
+			let lastTime = 0;
+			let fps = 0;
 
-/* ================= 摄像头 ================= */
-async function startCamera() {
-  running = false;
-  tip.textContent = "Camera loading...";
+			/* ================= 摄像头 ================= */
+			async function startCamera() {
+				running = false;
+				tip.textContent = "Camera loading...";
 
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(t => t.stop());
-  }
+				if (video.srcObject) {
+					video.srcObject.getTracks().forEach(t => t.stop());
+				}
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode,
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    }
-  });
+				const stream = await navigator.mediaDevices.getUserMedia({
+					video: {
+						facingMode,
+						width: {
+							ideal: 1280
+						},
+						height: {
+							ideal: 720
+						}
+					}
+				});
 
-  video.srcObject = stream;
-  await video.play();
+				video.srcObject = stream;
+				await video.play();
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+				canvas.width = video.videoWidth;
+				canvas.height = video.videoHeight;
 
-  const mirror = facingMode === "user";
-  video.classList.toggle("mirror", mirror);
-  canvas.classList.toggle("mirror", mirror);
+				const mirror = facingMode === "user";
+				video.classList.toggle("mirror", mirror);
+				canvas.classList.toggle("mirror", mirror);
 
-  running = true;
-  tip.textContent = `Camera OK (${facingMode})`;
-}
+				running = true;
+				tip.textContent = `Camera OK (${facingMode})`;
+			}
 
-/* ================= AI 初始化 ================= */
-async function initAI() {
-  tip.textContent = "AI loading...";
+			/* ================= AI 初始化 ================= */
+			async function initAI() {
+				tip.textContent = "AI loading...";
 
-  const vision = await FilesetResolver.forVisionTasks(
-     "/mediapipe/tasks-vision/wasm"
-  );
+				const vision = await FilesetResolver.forVisionTasks(
+					"/mediapipe/tasks-vision/wasm"
+				);
 
-  poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-       "/mediapipe/model/pose_landmarker_lite.task",
-      delegate: "GPU"
-    },
-    runningMode: "VIDEO",
-    numPoses: 1
-  });
+				poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+					baseOptions: {
+						modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task",
+						delegate: "GPU"
+					},
+					runningMode: "VIDEO",
+					numPoses: 1
+				});
 
-  tip.textContent = "AI Ready";
-  requestAnimationFrame(loop);
-}
+				tip.textContent = "AI Ready";
+				requestAnimationFrame(loop);
+			}
 
-/* ================= 主循环 ================= */
-function loop(ts) {
-  if (running && poseLandmarker) {
-    frameCount++;
-    if (ts - lastTime > 1000) {
-      fps = frameCount;
-      frameCount = 0;
-      lastTime = ts;
-      tip.textContent = `FPS: ${fps} | ${facingMode}`;
-    }
+			/* ================= 主循环 ================= */
+			function loop(ts) {
+				if (running && poseLandmarker) {
+					frameCount++;
+					if (ts - lastTime > 1000) {
+						fps = frameCount;
+						frameCount = 0;
+						lastTime = ts;
+						tip.textContent = `FPS: ${fps} | ${facingMode}`;
+					}
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    try {
-      const res = poseLandmarker.detectForVideo(video, ts);
-      if (res.landmarks && res.landmarks[0]) {
-        drawPose(res.landmarks[0]);
-      }
-    } catch (_) {}
-  }
+					try {
+						const res = poseLandmarker.detectForVideo(video, ts);
+						if (res.landmarks && res.landmarks[0]) {
+							drawPose(res.landmarks[0]);
+						}
+					} catch (_) {}
+				}
 
-  requestAnimationFrame(loop);
-}
+				requestAnimationFrame(loop);
+			}
 
-/* ================= 绘制 ================= */
-function drawPose(lm) {
-  ctx.save();
-  ctx.strokeStyle = "#00ff7f";
-  ctx.fillStyle = "#ffffff";
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+			/* ================= 绘制 ================= */
+			function drawPose(lm) {
+				ctx.save();
+				ctx.strokeStyle = "#00ff7f";
+				ctx.fillStyle = "#ffffff";
+				ctx.lineWidth = 3;
+				ctx.lineCap = "round";
+				ctx.lineJoin = "round";
 
-  const bones = [
-    [11,13],[13,15],[12,14],[14,16],
-    [23,25],[25,27],[24,26],[26,28],
-    [11,12],[23,24],[11,23],[12,24]
-  ];
+				const bones = [
+					[11, 13],
+					[13, 15],
+					[12, 14],
+					[14, 16],
+					[23, 25],
+					[25, 27],
+					[24, 26],
+					[26, 28],
+					[11, 12],
+					[23, 24],
+					[11, 23],
+					[12, 24]
+				];
 
-  bones.forEach(([a,b]) =>
-    drawLine(toCanvas(lm[a]), toCanvas(lm[b]))
-  );
+				bones.forEach(([a, b]) =>
+					drawLine(toCanvas(lm[a]), toCanvas(lm[b]))
+				);
 
-  lm.forEach(p => drawPoint(toCanvas(p)));
+				lm.forEach(p => drawPoint(toCanvas(p)));
 
-  // 角度
-  drawAngle(lm[11], lm[13], lm[15]); // 左肘
-  drawAngle(lm[12], lm[14], lm[16]); // 右肘
-  drawAngle(lm[23], lm[25], lm[27]); // 左膝
-  drawAngle(lm[24], lm[26], lm[28]); // 右膝
+				// 角度
+				drawAngle(lm[11], lm[13], lm[15]); // 左肘
+				drawAngle(lm[12], lm[14], lm[16]); // 右肘
+				drawAngle(lm[23], lm[25], lm[27]); // 左膝
+				drawAngle(lm[24], lm[26], lm[28]); // 右膝
 
-  ctx.restore();
-}
+				ctx.restore();
+			}
 
-/* ---------- 工具函数 ---------- */
-function toCanvas(p) {
-  return { x: p.x * canvas.width, y: p.y * canvas.height };
-}
+			/* ---------- 工具函数 ---------- */
+			function toCanvas(p) {
+				return {
+					x: p.x * canvas.width,
+					y: p.y * canvas.height
+				};
+			}
 
-function drawLine(a, b) {
-  if (!a || !b) return;
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.stroke();
-}
+			function drawLine(a, b) {
+				if (!a || !b) return;
+				ctx.beginPath();
+				ctx.moveTo(a.x, a.y);
+				ctx.lineTo(b.x, b.y);
+				ctx.stroke();
+			}
 
-function drawPoint(p) {
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-  ctx.fill();
-}
+			function drawPoint(p) {
+				ctx.beginPath();
+				ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+				ctx.fill();
+			}
 
-function calcAngle(a, b, c) {
-  const ab = { x: a.x - b.x, y: a.y - b.y };
-  const cb = { x: c.x - b.x, y: c.y - b.y };
+			function calcAngle(a, b, c) {
+				const ab = {
+					x: a.x - b.x,
+					y: a.y - b.y
+				};
+				const cb = {
+					x: c.x - b.x,
+					y: c.y - b.y
+				};
 
-  const dot = ab.x * cb.x + ab.y * cb.y;
-  const mag1 = Math.hypot(ab.x, ab.y);
-  const mag2 = Math.hypot(cb.x, cb.y);
+				const dot = ab.x * cb.x + ab.y * cb.y;
+				const mag1 = Math.hypot(ab.x, ab.y);
+				const mag2 = Math.hypot(cb.x, cb.y);
 
-  return Math.acos(dot / (mag1 * mag2)) * 180 / Math.PI;
-}
+				return Math.acos(dot / (mag1 * mag2)) * 180 / Math.PI;
+			}
 
-function drawAngle(a, b, c) {
-  const angle = Math.round(calcAngle(a, b, c));
-  const p = toCanvas(b);
-  ctx.font = "12px monospace";
-  ctx.fillText(`${angle}°`, p.x + 6, p.y - 6);
-}
+			function drawAngle(a, b, c) {
+				const angle = Math.round(calcAngle(a, b, c));
+				const p = toCanvas(b);
+				ctx.font = "12px monospace";
+				ctx.fillText(`${angle}°`, p.x + 6, p.y - 6);
+			}
 
-/* ================= Flutter / 切摄像头 ================= */
-window.toggleCamera = async () => {
-  facingMode = facingMode === "user" ? "environment" : "user";
-  await startCamera();
-  return facingMode;
-};
+			/* ================= Flutter / 切摄像头 ================= */
+			window.toggleCamera = async () => {
+				facingMode = facingMode === "user" ? "environment" : "user";
+				await startCamera();
+				return facingMode;
+			};
 
-/* ================= 启动 ================= */
-await startCamera();
-await initAI();
-
-</script>
-</body>
+			/* ================= 启动 ================= */
+			 startCamera();
+			initAI();
+		</script>
+	</body>
 </html>
