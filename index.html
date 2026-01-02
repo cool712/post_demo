@@ -126,32 +126,32 @@
 				});
 
 				tip.textContent = "AI Ready";
-				requestAnimationFrame(loop);
+				// requestAnimationFrame(loop);
 			}
 
-			/* ================= 主循环 ================= */
-			function loop(ts) {
-				if (running && poseLandmarker) {
-					frameCount++;
-					if (ts - lastTime > 1000) {
-						fps = frameCount;
-						frameCount = 0;
-						lastTime = ts;
-						tip.textContent = `FPS: ${fps} | ${facingMode}`;
-					}
+			// /* ================= 主循环 ================= */
+			// function loop(ts) {
+			// 	if (running && poseLandmarker) {
+			// 		frameCount++;
+			// 		if (ts - lastTime > 1000) {
+			// 			fps = frameCount;
+			// 			frameCount = 0;
+			// 			lastTime = ts;
+			// 			tip.textContent = `FPS: ${fps} | ${facingMode}`;
+			// 		}
 
-					ctx.clearRect(0, 0, canvas.width, canvas.height);
+			// 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-					try {
-						const res = poseLandmarker.detectForVideo(video, ts);
-						if (res.landmarks && res.landmarks[0]) {
-							drawPose(res.landmarks[0]);
-						}
-					} catch (_) {}
-				}
+			// 		try {
+			// 			const res = poseLandmarker.detectForVideo(video, ts);
+			// 			if (res.landmarks && res.landmarks[0]) {
+			// 				drawPose(res.landmarks[0]);
+			// 			}
+			// 		} catch (_) {}
+			// 	}
 
-				requestAnimationFrame(loop);
-			}
+			// 	requestAnimationFrame(loop);
+			// }
 
 			/* ================= 绘制 ================= */
 			function drawPose(lm) {
@@ -247,7 +247,7 @@
 
 			/* ================= 启动 ================= */
 			startCamera();
-			 initAI();
+			initAI();
 		</script>
 	</body>
 </html>
