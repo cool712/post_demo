@@ -239,11 +239,23 @@
 			}
 
 			/* ================= Flutter / 切摄像头 ================= */
-			window.toggleCamera = async () => {
-				facingMode = facingMode === "user" ? "environment" : "user";
-				await startCamera();
-				return facingMode;
-			};
+		/* ================= Flutter 调用接口 ================= */
+		window.toggleCamera = async function() {
+		    try {L
+		        // 1. 切换模式
+		        facingMode = (facingMode === "user") ? "environment" : "user";
+		        
+		        // 2. 等待摄像头启动完成
+		        await startCamera(); 
+		        
+		        // 3. 显式返回字符串，不要返回变量对象
+		        console.log("Switch successful, returning:", facingMode);
+		        return String(facingMode); 
+		    } catch (err) {
+		        console.error("JS Toggle Error:", err);
+		        return "error"; 
+		    }
+		};
 
 			/* --- 录制接口 --- */
 			let mediaRecorder;
