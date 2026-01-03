@@ -268,13 +268,13 @@
         };
 
         /* ================= 启动流程 (异步不阻塞) ================= */
-        async function bootstrap() {
+         function bootstrap() {
             // 1. 先开摄像头，画面会立刻出来
-            await startCamera();
+            startCamera();
             // 2. 启动渲染循环
             requestAnimationFrame(loop);
             // 3. 异步初始化 AI，加载期间画面不会黑
-            await initAI();
+            initAI();
         }
 
         bootstrap();
