@@ -23,7 +23,7 @@
     <canvas id="canvas"></canvas>
 
     <script type="module">
-        import { PoseLandmarker, FilesetResolver } from "mediapipe/tasks-vision/vision_bundle.js";
+        import { PoseLandmarker, FilesetResolver } from "/mediapipe/tasks-vision/vision_bundle.js";
 
         /* ---------- DOM ---------- */
         const video = document.getElementById("video");
@@ -83,11 +83,11 @@
         async function initAI() {
             try {
                 tip.textContent = "AI loading...";
-                const vision = await FilesetResolver.forVisionTasks("mediapipe/tasks-vision/wasm");
+                const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
 
                 poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                     baseOptions: {
-                        modelAssetPath: "mediapipe/model/pose_landmarker_lite.task",
+                        modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task",
                         delegate: "GPU"
                     },
                     runningMode: "VIDEO",
