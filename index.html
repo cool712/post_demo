@@ -377,10 +377,15 @@
 				return facingMode;
 			};
 
-			//L
+
 			/* ================= 启动 ================= */
-			startCamera();
-			initAI();
+
+			async function main() {
+				await startCamera();
+				requestAnimationFrame(loop);
+				initAI();
+			}
+			main();
 		</script>
 	</body>
 </html>
