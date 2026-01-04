@@ -266,11 +266,11 @@
 				}
 			};
 			// 3. 停止并上传 (由 Flutter 调用并传入 Token 和 URL)
-			window.stopAndUpload = async function(uploadUrl, token) {
+			window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
 				if (!mediaRecorder) return;
 
 				mediaRecorder.onstop = async () => {
-					duration = (Date.now() - startTime) / 1000;
+					const finalDuration = flutterDuration;
 					const blob = new Blob(recordedChunks, {
 						type: mediaRecorder.mimeType
 					});
@@ -280,7 +280,7 @@
 					// 生成一个文件名，如果是 WebM 建议后缀写 .webm
 					const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
 					formData.append("file", blob, `record_${Date.now()}.${ext}`);
-					formData.append("duration", duration);
+					formData.append("duration", finalDuration);
 
 					try {
 						// tip.textContent = "Uploading...";
@@ -314,7 +314,8 @@
 						window.flutter_inappwebview.callHandler("onUploadComplete", {
 							success: response.ok,
 							status: response.status,
-							duration: duration
+							duration: finalDuration,
+							data: resultText
 						});
 					} catch (err) {
 						console.error("Upload Error:", err);
