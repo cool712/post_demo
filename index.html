@@ -75,11 +75,6 @@
 			let dynamicScale = 0.5; // 初始识别分辨率比例 (0.1 ~ 1.0)
 			let frameCount = 0;
 			let lastFpsCheck = 0;
-			// --- 核心：持久化流容器 ---
-            // 录制器始终绑定这个 stream，我们动态更换里面的轨道
-            const recordingStream = new MediaStream(); 
-            let mediaRecorder = null;
-            let recordedChunks = [];
 			/* ================= 摄像头 ================= */
 			async function startCamera() {
 				running = false;
@@ -103,14 +98,7 @@
 
 				video.srcObject = stream;
 				await video.play();
-// --- 关键：轨道替换逻辑 ---
-                    // 1. 移除 recordingStream 中旧的视频轨道
-                    recordingStream.getVideoTracks().forEach(track => {
-                        recordingStream.removeTrack(track);
-                    });
-                    // 2. 将新摄像头的轨道加入容器
-                    const newTrack = stream.getVideoTracks()[0];
-                    recordingStream.addTrack(newTrack);
+
 				canvas.width = video.videoWidth;
 				canvas.height = video.videoHeight;
 
@@ -259,8 +247,8 @@
 
 
 			/* --- 录制接口 --- */
-			// let mediaRecorder;
-			// let recordedChunks = [];
+			let mediaRecorder;
+			let recordedChunks = [];
 			
 			window.startRecord = function() {
 				if (!video.srcObject) return;
@@ -269,7 +257,7 @@
                    ? "video/mp4" 
                    : "video/webm;codecs=vp8";
 
-  mediaRecorder = new MediaRecorder(recordingStream, { mimeType });
+  mediaRecorder = new MediaRecorder(video.srcObject, { mimeType });
   
   mediaRecorder.ondataavailable = e => {
     if (e.data.size > 0) recordedChunks.push(e.data);
