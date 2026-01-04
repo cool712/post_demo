@@ -266,68 +266,114 @@
 				}
 			};
 			// 3. 停止并上传 (由 Flutter 调用并传入 Token 和 URL)
+			// window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
+			// 	if (!mediaRecorder) return;
+
+			// 	mediaRecorder.onstop = async () => {
+			// 		const finalDuration = flutterDuration;
+			// 		const blob = new Blob(recordedChunks, {
+			// 			type: mediaRecorder.mimeType
+			// 		});
+
+			// 		// 构建表单数据
+			// 		const formData = new FormData();
+			// 		// 生成一个文件名，如果是 WebM 建议后缀写 .webm
+			// 		const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
+			// 		formData.append("file", blob, `record_${Date.now()}.${ext}`);
+			// 		formData.append("duration", finalDuration);
+
+			// 		try {
+			// 			// tip.textContent = "Uploading...";
+			// 			// const response = await fetch(uploadUrl, {
+			// 			//   method: "POST",
+			// 			//   headers: {
+			// 			//     "Authorization": `Bearer ${token}` // 传入 Flutter 提供的 Token
+			// 			//   },
+			// 			//   body: formData
+			// 			// });
+
+			// 			// const result = await response.json();
+
+			// 			// // 通知 Flutter 上传成功
+			// 			// window.flutter_inappwebview.callHandler("onUploadComplete", {
+			// 			//   success: response.ok,
+			// 			//   data: result,
+			// 			//   duration: duration
+			// 			// });
+			// 			// tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
+			// 			const response = await fetch(uploadUrl, {
+			// 				method: "POST",
+			// 				// headers: { "Authorization": `Bearer ${token}` },
+			// 				body: formData
+			// 			});
+
+			// 			// ⭐ 测试专用：Webhook.site 可能不返回 JSON
+			// 			let resultText = await response.text();
+			// 			console.log("Raw Response:", resultText);
+
+			// 			window.flutter_inappwebview.callHandler("onUploadComplete", {
+			// 				success: response.ok,
+			// 				status: response.status,
+			// 				duration: finalDuration
+			// 			});
+			// 		} catch (err) {
+			// 			console.error("Upload Error:", err);
+			// 			window.flutter_inappwebview.callHandler("onUploadComplete", {
+			// 				success: false,
+			// 				error: err.message
+			// 			});
+			// 			tip.textContent = "Upload Error";
+			// 		}
+			// 	};
+
+			// 	mediaRecorder.stop();
+			// };
 			window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
-				if (!mediaRecorder) return;
+    if (!mediaRecorder || mediaRecorder.state === "inactive") return;
 
-				mediaRecorder.onstop = async () => {
-					const finalDuration = flutterDuration;
-					const blob = new Blob(recordedChunks, {
-						type: mediaRecorder.mimeType
-					});
+    // 关键：先定义好停止后的逻辑
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const formData = new FormData();
+        const filename = `record_${Date.now()}.webm`;
+        
+        formData.append("file", blob, filename);
+        formData.append("duration", flutterDuration);
 
-					// 构建表单数据
-					const formData = new FormData();
-					// 生成一个文件名，如果是 WebM 建议后缀写 .webm
-					const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
-					formData.append("file", blob, `record_${Date.now()}.${ext}`);
-					formData.append("duration", finalDuration);
+        try {
+            // 设置超时控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-					try {
-						// tip.textContent = "Uploading...";
-						// const response = await fetch(uploadUrl, {
-						//   method: "POST",
-						//   headers: {
-						//     "Authorization": `Bearer ${token}` // 传入 Flutter 提供的 Token
-						//   },
-						//   body: formData
-						// });
+            const response = await fetch(uploadUrl, {
+                method: "POST",
+                body: formData,
+                signal: controller.signal
+            });
 
-						// const result = await response.json();
+            clearTimeout(timeoutId);
+            const resultText = await response.text();
 
-						// // 通知 Flutter 上传成功
-						// window.flutter_inappwebview.callHandler("onUploadComplete", {
-						//   success: response.ok,
-						//   data: result,
-						//   duration: duration
-						// });
-						// tip.textContent = response.ok ? "Upload Success" : "Upload Failed";
-						const response = await fetch(uploadUrl, {
-							method: "POST",
-							// headers: { "Authorization": `Bearer ${token}` },
-							body: formData
-						});
+            // 成功回调 Flutter
+            if (window.flutter_inappwebview) {
+                window.flutter_inappwebview.callHandler("onUploadComplete", {
+                    success: response.ok,
+                    status: response.status,
+                    data: resultText
+                });
+            }
+        } catch (err) {
+            if (window.flutter_inappwebview) {
+                window.flutter_inappwebview.callHandler("onUploadComplete", {
+                    success: false,
+                    error: err.message
+                });
+            }
+        }
+    };
 
-						// ⭐ 测试专用：Webhook.site 可能不返回 JSON
-						let resultText = await response.text();
-						console.log("Raw Response:", resultText);
-
-						window.flutter_inappwebview.callHandler("onUploadComplete", {
-							success: response.ok,
-							status: response.status,
-							duration: finalDuration
-						});
-					} catch (err) {
-						console.error("Upload Error:", err);
-						window.flutter_inappwebview.callHandler("onUploadComplete", {
-							success: false,
-							error: err.message
-						});
-						tip.textContent = "Upload Error";
-					}
-				};
-
-				mediaRecorder.stop();
-			};
+    mediaRecorder.stop();
+};
 			/* ================= Flutter / 切摄像头 ================= */
 			window.toggleCamera = async () => {
 				facingMode = facingMode === "user" ? "environment" : "user";
