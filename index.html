@@ -249,24 +249,36 @@
 			/* --- 录制接口 --- */
 			let mediaRecorder;
 			let recordedChunks = [];
+			
 			window.startRecord = function() {
+				if (!video.srcObject) return;
 				recordedChunks = [];
-				mediaRecorder = new MediaRecorder(video.srcObject);
-				mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-				mediaRecorder.start();
+				const mimeType = MediaRecorder.isTypeSupported("video/mp4") 
+                   ? "video/mp4" 
+                   : "video/webm;codecs=vp8";
+
+  mediaRecorder = new MediaRecorder(video.srcObject, { mimeType });
+  
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.start();
+  console.log("Recording started");
 			};
 			// 2. 暂停/恢复录制
 			window.pauseRecord = function() {
 				if (!mediaRecorder) return;
-				if (mediaRecorder.state === "recording") {
-					mediaRecorder.pause();
-					// 暂停时可以累计已录制时间（此处简化处理，假设为连续录制）
-				} else if (mediaRecorder.state === "paused") {
-					mediaRecorder.resume();
-				}
+  if (mediaRecorder.state === "recording") {
+    mediaRecorder.pause();
+    // 暂停时可以累计已录制时间（此处简化处理，假设为连续录制）
+  } else if (mediaRecorder.state === "paused") {
+    mediaRecorder.resume();
+  }
 			};
 			// 3. 停止并上传 (由 Flutter 调用并传入 Token 和 URL)
 			window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
+				
 				if (!mediaRecorder) return;
 
 				mediaRecorder.onstop = async () => {
