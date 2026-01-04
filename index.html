@@ -286,7 +286,10 @@
 					const blob = new Blob(recordedChunks, {
 						type: mediaRecorder.mimeType
 					});
-
+// --- 核心修改：获取文件大小 (单位: Bytes) ---
+        const fileSizeInBytes = blob.size; 
+        const fileSizeInKB = (blob.size / 1024).toFixed(2);
+        const fileSizeInMB = (blob.size / (1024 * 1024)).toFixed(2);
 					// 构建表单数据
 					const formData = new FormData();
 					// 生成一个文件名，如果是 WebM 建议后缀写 .webm
@@ -325,14 +328,18 @@
 
 						window.flutter_inappwebview.callHandler("onUploadComplete", {
 							success: response.ok,
-							status: response.status,
-							duration: finalDuration
+							status: response.status,data: resultText,
+							duration: finalDuration,
+                    // --- 传给 Flutter 的新字段 ---
+                    fileSize: fileSizeInBytes, 
+                    fileSizeReadable: `${fileSizeInMB} MB`
 						});
 					} catch (err) {
 						console.error("Upload Error:", err);
 						window.flutter_inappwebview.callHandler("onUploadComplete", {
 							success: false,
-							error: err.message
+							error: err.message,
+                    fileSize: fileSizeInBytes
 						});
 						tip.textContent = "Upload Error";
 					}
