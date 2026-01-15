@@ -185,7 +185,12 @@
             currentRecordFrameIndex = 0;
 
             const stream = canvas.captureStream(25); 
-            const options = { mimeType: 'video/webm;codecs=vp8' };
+            const options = { mimeType: 'video/mp4;codecs=avc1' };
+            // 检查浏览器是否支持 mp4，如果不支持则回退到 webm
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        console.warn("MP4 不支持，回退到 WebM");
+        options = { mimeType: 'video/webm;codecs=vp8' };
+    }
             mediaRecorder = new MediaRecorder(stream, options);
 
             mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
@@ -203,7 +208,7 @@
                 const jsonBlob = new Blob([JSON.stringify(poseDataJson)], { type: "application/json" });
 
                 const formData = new FormData();
-                formData.append("file", videoBlob, "video.webm");
+                formData.append("file", videoBlob, "video.mp4");
                 formData.append("pose_data", jsonBlob, "data.json");
                 formData.append("duration", flutterDuration);
 
