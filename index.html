@@ -62,7 +62,7 @@
             try {
                 const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
                 poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-                    baseOptions: { modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task", delegate: "GPU" },
+                    baseOptions: { modelAssetPath: "/mediapipe/model/pose_landmarker_full.task", delegate: "GPU" },
                     runningMode: "VIDEO", numPoses: 1
                 });
                 tip.textContent = "AI Ready";
