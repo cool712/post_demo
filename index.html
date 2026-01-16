@@ -72,7 +72,7 @@
 			let dynamicScale = 0.5; // 初始识别分辨率比例 (0.1 ~ 1.0)
 			let frameCount = 0;
 			let lastFpsCheck = 0;
-			let isAiProcessing = false; // 新增：AI 是否正在工作的锁
+
 			/* ================= 1. 摄像头初始化 ================= */
 			async function startCamera() {
 				if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
@@ -126,9 +126,11 @@
 			/* ================= 3. 主循环 ================= */
 			function loop(ts) {
 				requestAnimationFrame(loop);
+
+				// 只要摄像头跑起来了 (running === true)，就开始画画
 				if (!running) return;
 
-				// 1. 优先级最高：每一帧都必须画背景，保证视频流畅
+				// --- 第一部分：无论 AI 没好，先画摄像头背景 ---
 				ctx.save();
 				if (facingMode === "user") {
 					ctx.translate(canvas.width, 0);
@@ -137,27 +139,13 @@
 				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 				ctx.restore();
 
-				if (!poseLandmarker) return;
-
-				// 2. 优先级降低：只有当 AI 空闲时，才抓取当前帧进行检测
-				// 如果 AI 上一帧还没算完，这一帧就只画视频，不跑 AI
-				if (video.readyState >= 2 && !isAiProcessing) {
-					isAiProcessing = true; // 上锁
-
-					// 使用 setTimeout(0) 将 AI 计算推迟到微任务之后，防止阻塞当前的 DrawImage 渲染
-					setTimeout(() => {
-						try {
-							const result = poseLandmarker.detectForVideo(video, ts);
-							if (result.landmarks && result.landmarks.length > 0) {
-								processAndDraw(result.landmarks[0]);
-							}
-						} catch (e) {
-							console.warn(e);
-						} finally {
-							isAiProcessing = false; // 解锁
-						}
-					}, 0);
+				// --- 第二部分：如果 AI 模型还没加载完，到此为止，不跑后面的检测逻辑 ---
+				if (!poseLandmarker) {
+					// 可以在屏幕上提示用户正在加载 AI
+					tip.textContent = "Camera Ready | AI Loading...";
+					return;
 				}
+
 				// --- 第三部分：AI 检测与骨架绘制 (只有 AI 好了才会跑这里) ---
 				frameCount++;
 				if (ts - lastFpsCheck > 1000) {
