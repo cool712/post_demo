@@ -36,16 +36,12 @@
 				font-family: monospace;
 				font-size: 11px;
 			}
-
-			.mirror {
-				transform: scaleX(-1);
-				-webkit-transform: scaleX(-1);
-			}
 		</style>
 	</head>
 
 	<body>
 		<div id="tip">Initializing...</div>
+		<video id="video" autoplay playsinline muted style="display:none;"></video>
 		<canvas id="canvas"></canvas>
 
 		<script type="module">
@@ -76,7 +72,7 @@
 			let dynamicScale = 0.5; // 初始识别分辨率比例 (0.1 ~ 1.0)
 			let frameCount = 0;
 			let lastFpsCheck = 0;
-
+			let isAiProcessing = false; // 新增：AI 是否正在工作的锁
 			/* ================= 1. 摄像头初始化 ================= */
 			async function startCamera() {
 				if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
@@ -98,12 +94,6 @@
 							video.play();
 							canvas.width = video.videoWidth;
 							canvas.height = video.videoHeight;
-
-							// 根据模式添加镜像样式
-							const isUser = facingMode === "user";
-							video.classList.toggle("mirror", isUser);
-							canvas.classList.toggle("mirror", isUser);
-
 							running = true;
 							resolve();
 						};
@@ -136,22 +126,59 @@
 			/* ================= 3. 主循环 ================= */
 			function loop(ts) {
 				requestAnimationFrame(loop);
-				if (!running || !poseLandmarker) return;
+				if (!running) return;
 
+				// 1. 优先级最高：每一帧都必须画背景，保证视频流畅
+				ctx.save();
+				if (facingMode === "user") {
+					ctx.translate(canvas.width, 0);
+					ctx.scale(-1, 1);
+				}
+				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+				ctx.restore();
 
+				if (!poseLandmarker) return;
 
-				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				// 2. 优先级降低：只有当 AI 空闲时，才抓取当前帧进行检测
+				// 如果 AI 上一帧还没算完，这一帧就只画视频，不跑 AI
+				if (video.readyState >= 2 && !isAiProcessing) {
+					isAiProcessing = true; // 上锁
 
+					// 使用 setTimeout(0) 将 AI 计算推迟到微任务之后，防止阻塞当前的 DrawImage 渲染
+					setTimeout(() => {
+						try {
+							const result = poseLandmarker.detectForVideo(video, ts);
+							if (result.landmarks && result.landmarks.length > 0) {
+								processAndDraw(result.landmarks[0]);
+							}
+						} catch (e) {
+							console.warn(e);
+						} finally {
+							isAiProcessing = false; // 解锁
+						}
+					}, 0);
+				}
+				// --- 第三部分：AI 检测与骨架绘制 (只有 AI 好了才会跑这里) ---
+				frameCount++;
+				if (ts - lastFpsCheck > 1000) {
+					const fps = frameCount;
+					if (fps < 12 && dynamicScale > 0.3) dynamicScale -= 0.1;
+					else if (fps > 14 && dynamicScale < 1.0) dynamicScale += 0.1;
+					tip.textContent =
+						`Quality: ${Math.round(dynamicScale * 100)}% | FPS: ${fps} | Rec: ${isRecording ? 'ON' : 'OFF'}`;
+					frameCount = 0;
+					lastFpsCheck = ts;
+				}
 
-				if (video.readyState >= 2) {
-					try {
+				try {
+					if (video.readyState >= 2) {
 						const result = poseLandmarker.detectForVideo(video, ts);
 						if (result.landmarks && result.landmarks.length > 0) {
 							processAndDraw(result.landmarks[0]);
 						}
-					} catch (e) {
-						console.warn("Detection skipped:", e);
 					}
+				} catch (e) {
+					console.warn("Detection skipped:", e);
 				}
 			}
 			/* ================= 4. 处理数据与绘制 ================= */
@@ -218,9 +245,9 @@
 
 			/* ================= 5. 工具函数 ================= */
 			function toCanvas(p) {
-				// 直接映射，简单快速
+				let x = (facingMode === "user") ? (1 - p.x) : p.x;
 				return {
-					x: p.x * canvas.width,
+					x: x * canvas.width,
 					y: p.y * canvas.height
 				};
 			}
