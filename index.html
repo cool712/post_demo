@@ -140,9 +140,6 @@
 				// 如果 AI 还没好，到此为止，不跑后面的检测逻辑
 				if (!poseLandmarker) return;
 
-				// 后续的 FPS 统计和 AI 检测逻辑...
-				frameCount++;
-
 				frameCount++;
 				if (ts - lastFpsCheck > 1000) {
 					const fps = frameCount;
