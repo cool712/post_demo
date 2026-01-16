@@ -72,7 +72,7 @@
 			let dynamicScale = 0.5; // 初始识别分辨率比例 (0.1 ~ 1.0)
 			let frameCount = 0;
 			let lastFpsCheck = 0;
-			let aiReadyToDetect = false;
+
 			/* ================= 1. 摄像头初始化 ================= */
 			async function startCamera() {
 				if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
@@ -104,60 +104,56 @@
 			}
 
 			/* ================= 2. AI 初始化 ================= */
-	async function initAI() {
-	    try {
-	        tip.textContent = "AI loading...";
-	        const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-	        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-	            baseOptions: {
-	                // 强烈建议换成 lite 版本以消除卡顿
-	                modelAssetPath: "/mediapipe/model/pose_landmarker_full.task", 
-	                delegate: "GPU"
-	            },
-	            runningMode: "VIDEO",
-	            numPoses: 1
-	        });
-	
-	        // 关键点：加载完后，等待 500ms 再允许检测，避开 WASM 编译后的 CPU 峰值
-	        setTimeout(() => {
-	            aiReadyToDetect = true;
-	            tip.textContent = "AI Ready";
-	        }, 500);
-	
-	    } catch (err) {
-	        tip.textContent = "AI Load Failed";
-	    }
-	}
+			async function initAI() {
+				try {
+					tip.textContent = "AI loading...";
+
+					const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+					poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+						baseOptions: {
+							modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
+							delegate: "GPU"
+						},
+						runningMode: "VIDEO",
+						numPoses: 1
+					});
+					tip.textContent = "AI Ready";
+				} catch (err) {
+					tip.textContent = "AI Load Failed";
+				}
+			}
 
 			/* ================= 3. 主循环 ================= */
-	function loop(ts) {
-	    requestAnimationFrame(loop);
-	    if (!running) return;
-	
-	    // 1. 始终渲染视频层 (保证视觉连续性)
-	    ctx.save();
-	    if (facingMode === "user") {
-	        ctx.translate(canvas.width, 0);
-	        ctx.scale(-1, 1);
-	    }
-	    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-	    ctx.restore();
-	
-	    // 2. 只有在 AI 准备就绪且过了缓冲期后，才进行检测
-	    if (!poseLandmarker || !aiReadyToDetect) return;
-	
-	    try {
-	        // 只有视频帧真正更新了才检测，减少无用计算
-	        if (video.readyState >= 2) {
-	            const result = poseLandmarker.detectForVideo(video, ts);
-	            if (result.landmarks && result.landmarks.length > 0) {
-	                processAndDraw(result.landmarks[0]);
-	            }
-	        }
-	    } catch (e) {
-	        console.warn("Detection skipped:", e);
-	    }
-	}
+			function loop(ts) {
+				requestAnimationFrame(loop);
+				if (!running) return;
+
+				// 1. 始终先画视频，保证视觉上的流畅度
+				ctx.save();
+				if (facingMode === "user") {
+					ctx.translate(canvas.width, 0);
+					ctx.scale(-1, 1);
+				}
+				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+				ctx.restore();
+
+				// 2. 如果 AI 还没好，直接结束，不执行任何检测逻辑
+				if (!poseLandmarker) return;
+
+				// 3. 关键点：限制检测频率
+				// 不必每一帧都检测，比如每 2 帧检测一次，可以大幅减轻旧手机的压力
+				if (frameCount % 2 === 0 && video.readyState >= 2) {
+					try {
+						const result = poseLandmarker.detectForVideo(video, ts);
+						if (result.landmarks && result.landmarks.length > 0) {
+							processAndDraw(result.landmarks[0]);
+						}
+					} catch (e) {
+						console.warn(e);
+					}
+				}
+				frameCount++;
+			}
 			/* ================= 4. 处理数据与绘制 ================= */
 			function processAndDraw(lm) {
 				console.log("Point 0 data:", lm[0]);
