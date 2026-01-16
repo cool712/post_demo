@@ -124,7 +124,7 @@
 				requestAnimationFrame(loop);
 				if (!running || !poseLandmarker) return;
 
-				
+
 				ctx.save();
 				if (facingMode === "user") {
 					ctx.translate(canvas.width, 0);
@@ -333,8 +333,9 @@
 			/* ================= 启动 ================= */
 			async function main() {
 				await startCamera();
-				initAI();
 				requestAnimationFrame(loop);
+				initAI();
+
 			}
 			main();
 		</script>
