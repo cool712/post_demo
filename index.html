@@ -111,7 +111,7 @@
 	        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
 	            baseOptions: {
 	                // 强烈建议换成 lite 版本以消除卡顿
-	                modelAssetPath: "/mediapipe/model/pose_landmarker_lite.task", 
+	                modelAssetPath: "/mediapipe/model/pose_landmarker_full.task", 
 	                delegate: "GPU"
 	            },
 	            runningMode: "VIDEO",
