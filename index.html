@@ -50,7 +50,10 @@
 			// 	PoseLandmarker,
 			// 	FilesetResolver
 			// } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest";
-		import { PoseLandmarker, FilesetResolver } from "/mediapipe/tasks-vision/tasks-vision@latest.js";
+			import {
+				PoseLandmarker,
+				FilesetResolver
+			} from "/mediapipe/tasks-vision/tasks-vision@latest.js";
 			/* ---------- DOM ---------- */
 			const video = document.getElementById("video");
 			const canvas = document.getElementById("canvas");
@@ -123,25 +126,32 @@
 			/* ================= 3. 主循环 ================= */
 			function loop(ts) {
 				requestAnimationFrame(loop);
-				if (!running || !poseLandmarker) return;
 
+				// 只要摄像头跑起来了 (running === true)，就必须开始画画
+				if (!running) return;
 
+				// --- 第一部分：无论 AI 没好，先画摄像头背景 ---
 				ctx.save();
 				if (facingMode === "user") {
 					ctx.translate(canvas.width, 0);
 					ctx.scale(-1, 1);
 				}
-				// 绘制摄像头原始画面
 				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 				ctx.restore();
 
+				// --- 第二部分：如果 AI 模型还没加载完，到此为止，不跑后面的检测逻辑 ---
+				if (!poseLandmarker) {
+					// 可以在屏幕上提示用户正在加载 AI
+					tip.textContent = "Camera Ready | AI Loading...";
+					return;
+				}
+
+				// --- 第三部分：AI 检测与骨架绘制 (只有 AI 好了才会跑这里) ---
 				frameCount++;
 				if (ts - lastFpsCheck > 1000) {
 					const fps = frameCount;
-					// --- 修复点 2: 动态质量调节 ---
 					if (fps < 12 && dynamicScale > 0.3) dynamicScale -= 0.1;
 					else if (fps > 14 && dynamicScale < 1.0) dynamicScale += 0.1;
-
 					tip.textContent =
 						`Quality: ${Math.round(dynamicScale * 100)}% | FPS: ${fps} | Rec: ${isRecording ? 'ON' : 'OFF'}`;
 					frameCount = 0;
@@ -152,7 +162,6 @@
 					if (video.readyState >= 2) {
 						const result = poseLandmarker.detectForVideo(video, ts);
 						if (result.landmarks && result.landmarks.length > 0) {
-							// 这里会画出绿色的骨架和角度，叠在视频上面
 							processAndDraw(result.landmarks[0]);
 						}
 					}
