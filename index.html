@@ -379,6 +379,7 @@ async function performUploadAction(uploadUrl, token, analyzeUrl) {
             throw new Error(resData.msg || "上传视频失败");
         }
     } catch (err) {
+		console.error("详细错误信息:", err);
         // 如果失败，通知 Flutter 允许重试
         window.flutter_inappwebview.callHandler("onUploadComplete", {
             success: false,
