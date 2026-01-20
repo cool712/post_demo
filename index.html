@@ -272,6 +272,13 @@
 			let recordedChunks = [];
 
 			window.startRecord = function() {
+				if (mediaRecorder && mediaRecorder.state === "paused") {
+        // 如果是暂停状态，直接恢复
+        mediaRecorder.resume();
+        isRecording = true;
+        console.log("Recording resumed...");
+        return;
+    }
 				recordedChunks = [];
 				poseDataJson = {};
 				currentRecordFrameIndex = 0;
@@ -302,23 +309,22 @@
 
 			window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
 				// 核心：如果已经停止录制了，说明是“重试”行为，直接走上传逻辑
-    if (mediaRecorder && mediaRecorder.state === "inactive") {
-        if (lastVideoBlob) {
-            console.log("检测到已停止录制，正在进行重试上传...");
-            return await performUploadAction(uploadUrl, token, flutterDuration);
-        }
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.pause(); // 先暂停，保证数据完整
+        isRecording = false;
     }
 
     // 第一次正常停止并上传
-    isRecording = false;
-    mediaRecorder.onstop = async () => {
-        // 将数据转为 Blob 永久存入变量，即使网络失败，数据也不会丢
+    // 强制触发一次数据收集，获取目前为止的所有二进制数据
+    mediaRecorder.requestData();
+
+    // 给一点点时间让 requestData 的回调处理完
+    setTimeout(async () => {
         lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
         lastJsonBlob = new Blob([JSON.stringify(poseDataJson)], { type: "application/json" });
+        
         await performUploadAction(uploadUrl, token, flutterDuration);
-    };
-				
-				mediaRecorder.stop();
+    }, 100);
 			};
 // 抽取独立的上传逻辑
 async function performUploadAction(uploadUrl, token, flutterDuration) {
