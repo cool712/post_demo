@@ -134,8 +134,14 @@
 				// 只要摄像头跑起来了 (running === true)，就开始画画
 				if (!running) return;
 
-				// Clear canvas to let video show through
-				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				// Draw video frame to canvas so it can be recorded
+				ctx.save();
+				if (facingMode === "user") {
+					ctx.translate(canvas.width, 0);
+					ctx.scale(-1, 1);
+				}
+				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+				ctx.restore();
 
 				// --- 第二部分：如果 AI 模型还没加载完，到此为止，不跑后面的检测逻辑 ---
 				if (!poseLandmarker) {
