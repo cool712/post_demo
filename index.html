@@ -41,7 +41,7 @@
 
 	<body>
 		<div id="tip">Initializing...</div>
-		<video id="video" autoplay playsinline muted style="display:none;"></video>
+		<video id="video" autoplay playsinline muted style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></video>
 		<canvas id="canvas"></canvas>
 
 		<script type="module">
@@ -342,10 +342,9 @@
 
 			/* ================= 启动 ================= */
 			async function main() {
+				initAI();
 				await startCamera();
 				requestAnimationFrame(loop);
-				initAI();
-
 			}
 			main();
 		</script>
