@@ -300,12 +300,12 @@
             let lastVideoBlob = null;
             let lastJsonBlob = null;
 
-			window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
+			window.stopAndUpload = async function(uploadUrl, token, analyzeUrl) {
 				// 核心：如果已经停止录制了，说明是“重试”行为，直接走上传逻辑
     if (mediaRecorder && mediaRecorder.state === "inactive") {
         if (lastVideoBlob) {
             console.log("检测到已停止录制，正在进行重试上传...");
-            return await performUploadAction(uploadUrl, token, flutterDuration);
+            return await performUploadAction(uploadUrl, token, analyzeUrl);
         }
     }
 
