@@ -296,6 +296,14 @@
 				isRecording = true;
 				console.log("Recording started...");
 			};
+			// 暂停拍摄
+			window.pauseRecord = function() {
+    if (!mediaRecorder) return;
+    if (mediaRecorder.state === "recording") {
+        mediaRecorder.pause(); // 暂停硬件录制
+    } else if (mediaRecorder.state === "paused") {
+        mediaRecorder.resume(); // 恢复硬件录制
+    }};
             // 修改上传逻辑，确保可以二次上传
             let lastVideoBlob = null;
             let lastJsonBlob = null;
