@@ -303,52 +303,47 @@
 				isRecording = true;
 				console.log("Recording started...");
 			};
-            // 修改上传逻辑，确保可以二次上传
-            let lastVideoBlob = null;
-            let lastJsonBlob = null;
 
 			window.stopAndUpload = async function(uploadUrl, token, flutterDuration) {
-				// 核心：如果已经停止录制了，说明是“重试”行为，直接走上传逻辑
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.pause(); // 先暂停，保证数据完整
-        isRecording = false;
-    }
+				isRecording = false;
+				if (!mediaRecorder || mediaRecorder.state === "inactive") return;
 
-    // 第一次正常停止并上传
-    // 强制触发一次数据收集，获取目前为止的所有二进制数据
-    mediaRecorder.requestData();
+				mediaRecorder.onstop = async () => {
+					const videoBlob = new Blob(recordedChunks, {
+						type: "video/webm"
+					});
+					const jsonBlob = new Blob([JSON.stringify(poseDataJson)], {
+						type: "application/json"
+					});
 
-    // 给一点点时间让 requestData 的回调处理完
-    setTimeout(async () => {
-        lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
-        lastJsonBlob = new Blob([JSON.stringify(poseDataJson)], { type: "application/json" });
-        
-        await performUploadAction(uploadUrl, token, flutterDuration);
-    }, 100);
+					const formData = new FormData();
+					formData.append("file", videoBlob, "video.mp4");
+					formData.append("pose_data", jsonBlob, "data.json");
+					formData.append("duration", flutterDuration);
+
+					try {
+						tip.textContent = "Uploading Data...";
+						const response = await fetch(uploadUrl, {
+							method: "POST",
+							// headers: { "Authorization": `Bearer ${token}` },
+							body: formData
+						});
+
+						const resText = await response.text();
+						window.flutter_inappwebview.callHandler("onUploadComplete", {
+							success: response.ok,
+							data: resText,
+							fileSize: videoBlob.size
+						});
+						tip.textContent = response.ok ? "Upload Done" : "Upload Failed";
+					} catch (err) {
+						console.error("Upload Error:", err);
+						tip.textContent = "Upload Error";
+					}
+				};
+				mediaRecorder.stop();
 			};
-// 抽取独立的上传逻辑
-async function performUploadAction(uploadUrl, token, flutterDuration) {
-    const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
-    formData.append("pose_data", lastJsonBlob, "data.json");
-    formData.append("duration", flutterDuration);
 
-    try {
-        const response = await fetch(uploadUrl, { method: "POST", body: formData });
-        const resText = await response.text();
-        
-        window.flutter_inappwebview.callHandler("onUploadComplete", {
-            success: response.ok,
-            data: resText
-        });
-    } catch (err) {
-        // 如果失败，通知 Flutter 允许重试
-        window.flutter_inappwebview.callHandler("onUploadComplete", {
-            success: false,
-            error: err.toString()
-        });
-    }
-}
 			window.toggleCamera = async () => {
 				running = false;
 				facingMode = facingMode === "user" ? "environment" : "user";
