@@ -335,8 +335,8 @@ async function performUploadAction(uploadUrl, token, analyzeUrl) {
     // formData.append("pose_data", lastJsonBlob, "data.json");
     // formData.append("duration", flutterDuration);
     try {
-		await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", { method: "POST", body: formData})
-        const response = await fetch(uploadUrl, { method: "POST", body: formData});
+		// await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }})
+        const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
         const resData = await response.json();
         if (resData.code === 200) {
             const videoUrl = resData.data.url;
