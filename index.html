@@ -78,6 +78,32 @@
 			let countdownStartTime = 0;
 			const COUNTDOWN_DURATION = 3000; // 3秒倒计时
 
+            // 设备方向监听
+            let currentDeviceRotation = 0;
+            window.addEventListener('deviceorientation', (event) => {
+                const gamma = event.gamma; // 左(-90)到右(90)
+                const beta = event.beta;   // 前(-180)到后(180)
+                
+                if (gamma === null || beta === null) return;
+
+                // 简单的方向判断逻辑
+                if (Math.abs(gamma) > 45) {
+                    // 横屏状态
+                    if (gamma > 0) {
+                        currentDeviceRotation = -90; // 右横屏 (Home键在左)
+                    } else {
+                        currentDeviceRotation = 90;  // 左横屏 (Home键在右)
+                    }
+                } else {
+                    // 竖屏状态
+                    if (Math.abs(beta) > 135) {
+                        currentDeviceRotation = 180; // 倒立
+                    } else {
+                        currentDeviceRotation = 0;   // 正立
+                    }
+                }
+            });
+
 			/* ================= 1. 摄像头初始化 ================= */
 			async function startCamera() {
 				if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
@@ -222,89 +248,35 @@
 							ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 							// 显示倒计时数字
-							ctx.save(); // 嵌套一层 save，专门用于文字旋转，避免影响外部 restore
+							ctx.save(); // 嵌套一层 save，专门用于文字旋转
 							ctx.translate(canvas.width / 2, canvas.height / 2);
 							
-							// 自动检测并旋转文字方向
-							// 策略优先级：
-							// 1. 屏幕/窗口方向 API (最准)
-							// 2. AI 视觉推断 (当 WebView 锁定竖屏但用户横持手机时有效)
+							// 使用 deviceorientation 获取的实时角度
+							// 根据之前的调试经验：
+							// 0度(竖屏) -> 需要旋转 90 度 (Math.PI/2) 才能变正？(基于之前的反馈)
+							// 90度(左横屏) -> 需要旋转 180 度 (Math.PI)？
+							// 让我们先按标准逻辑写，并加上偏移量方便调整
 							
-							let rotationAngle = 0;
-
-							// A. 尝试获取设备物理方向
-							if (screen.orientation && screen.orientation.angle) {
-								rotationAngle = screen.orientation.angle;
-							} else if (typeof window.orientation !== 'undefined') {
-								rotationAngle = window.orientation;
+							// 基础旋转：
+							// 0 -> 0
+							// 90 -> PI/2
+							// -90 -> -PI/2
+							
+							// 修正偏移：根据用户反馈竖屏差90度，我们默认 +90
+							const offset = 90 * Math.PI / 180; 
+							
+							if (currentDeviceRotation === 0) {
+								ctx.rotate(0 + offset); 
+							} else if (currentDeviceRotation === 90) {
+								ctx.rotate(Math.PI / 2 + offset);
+							} else if (currentDeviceRotation === -90) {
+								ctx.rotate(-Math.PI / 2 + offset);
+							} else if (currentDeviceRotation === 180) {
+								ctx.rotate(Math.PI + offset);
 							}
-
-							// B. 如果设备方向显示为 0 (竖屏)，但我们怀疑是横屏锁定，
-							// 尝试利用 AI 检测到的人眼连线角度来推断
-							// 左眼: lm[2], 右眼: lm[5]
-							if (rotationAngle === 0 && lm[2] && lm[5]) {
-								const dy = lm[5].y - lm[2].y;
-								const dx = lm[5].x - lm[2].x;
-								// 计算眼睛连线相对于水平线的角度 (弧度)
-								const eyeAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-								
-								// 正常竖屏时，eyeAngle 应该接近 0
-								// 如果手机左旋90度(横屏)，人像在画面里是逆时针转90度，eyeAngle 接近 -90
-								// 如果手机右旋90度，eyeAngle 接近 90
-								
-								if (eyeAngle > 45) {
-									rotationAngle = -90; // 对应手机顺时针转了90度
-								} else if (eyeAngle < -45) {
-									rotationAngle = 90; // 对应手机逆时针转了90度
-								}
-							}
-
-							// 执行旋转
-							// 注意：这里需要配合 translate 使用。
-							// 因为旋转是绕原点(0,0)进行的，而我们已经 translate 到了 canvas 中心。
-							// 所以旋转后坐标系变了，绘制文字的 (0,0) 依然是视觉中心。
 							
-							// 用户反馈：横屏状态下多了 90 度
-							// 之前的逻辑是：
-							// 90度 -> PI (180)
-							// -90度 -> 0
-							// 0度 -> PI/2 (90)
-							
-							// 调整策略：逆时针回退 90 度 (-PI/2)
-							// 90度 -> PI/2 (90)
-							// -90度 -> -PI/2 (-90)
-							// 0度 -> 0
-							
-							if (rotationAngle === 90) {
-								ctx.rotate(Math.PI / 2); 
-							} else if (rotationAngle === -90 || rotationAngle === 270) {
-								ctx.rotate(-Math.PI / 2);
-							} else if (rotationAngle === 180) {
-								ctx.rotate(Math.PI);
-							} else {
-								// 竖屏 0 度：
-								// 之前的尝试：0度 -> 口朝下(顺时针90度)
-								// 推论：需要逆时针转 90 度，即 -90 度 (-Math.PI / 2)
-								// 等等，第一次尝试就是 -90 度，当时您说也是口朝下？
-								// 让我们回顾一下：
-								// 1. -90度 -> 口朝下
-								// 2. 180度 -> 口朝上
-								// 3. 0度 -> 口朝下
-								
-								// 这说明 0 度 和 -90 度效果一样？这不太可能，除非浏览器锁定了或者旋转失效了。
-								// 或者是 270 度？
-								
-								// 如果 180 度是口朝上（逆时针偏90），那顺时针转 90 度应该是 180+90 = 270 (-90)。
-								// 但您说 -90 度也是朝下。
-								
-								// 让我们尝试一个中间值，比如 90 度 (Math.PI / 2)。
-								// 如果 0 度朝下，逆时针转 90 度 (即 -90) 还是朝下？那说明旋转方向搞反了？
-								// 让我们试着设为 90 度 (Math.PI / 2)。
-								ctx.rotate(Math.PI / 2);
-							}
-
- 							ctx.fillStyle = "white";
- 							ctx.strokeStyle = "black";
+							ctx.fillStyle = "white";
+							ctx.strokeStyle = "black";
 							ctx.lineWidth = 4;
 							ctx.font = "bold 150px monospace";
 							ctx.textAlign = "center";
@@ -312,9 +284,10 @@
 							ctx.strokeText(remaining.toString(), 0, 0);
 							ctx.fillText(remaining.toString(), 0, 0);
 							
-							// 调试：显示旋转角度信息，方便定位问题
+							// 调试信息
 							ctx.font = "bold 20px monospace";
-							ctx.fillText(`R:${rotationAngle}`, 0, 100);
+							ctx.fillStyle = "red";
+							ctx.fillText(`Rot:${currentDeviceRotation}`, 0, 100);
 							
 							ctx.restore(); // 对应 ctx.save() 用于文字旋转
 
