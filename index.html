@@ -222,6 +222,7 @@
 							ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 							// 显示倒计时数字
+							ctx.save(); // 嵌套一层 save，专门用于文字旋转，避免影响外部 restore
 							ctx.translate(canvas.width / 2, canvas.height / 2);
 							
 							// 自动检测并旋转文字方向
@@ -259,6 +260,9 @@
 							}
 
 							// 执行旋转
+							// 注意：这里需要配合 translate 使用。
+							// 因为旋转是绕原点(0,0)进行的，而我们已经 translate 到了 canvas 中心。
+							// 所以旋转后坐标系变了，绘制文字的 (0,0) 依然是视觉中心。
 							if (rotationAngle === 90) {
 								ctx.rotate(-Math.PI / 2);
 							} else if (rotationAngle === -90 || rotationAngle === 270) {
@@ -275,7 +279,7 @@
 							ctx.textBaseline = "middle";
 							ctx.strokeText(remaining.toString(), 0, 0);
 							ctx.fillText(remaining.toString(), 0, 0);
-							ctx.restore();
+							ctx.restore(); // 对应 ctx.save() 用于文字旋转
 
 							if (elapsed >= COUNTDOWN_DURATION) {
 								// 倒计时结束，真正开始录制
