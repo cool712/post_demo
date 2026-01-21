@@ -264,9 +264,9 @@
 							// 因为旋转是绕原点(0,0)进行的，而我们已经 translate 到了 canvas 中心。
 							// 所以旋转后坐标系变了，绘制文字的 (0,0) 依然是视觉中心。
 							if (rotationAngle === 90) {
-								ctx.rotate(-Math.PI / 2);
-							} else if (rotationAngle === -90 || rotationAngle === 270) {
 								ctx.rotate(Math.PI / 2);
+							} else if (rotationAngle === -90 || rotationAngle === 270) {
+								ctx.rotate(-Math.PI / 2);
 							} else if (rotationAngle === 180) {
 								ctx.rotate(Math.PI);
 							}
