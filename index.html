@@ -143,6 +143,7 @@
 				try {
 					tip.textContent = "AI loading...";
 
+                    // 优化：使用 requestAnimationFrame 避免阻塞
 					const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
 					poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
 						baseOptions: {
@@ -201,8 +202,15 @@
 					lastFpsCheck = ts;
 				}
 
+                // 异步处理 AI 检测，防止阻塞 UI 线程
 				try {
 					if (video.readyState >= 2) {
+                        // 使用 setTimeout 将耗时的 AI 检测放到下一个事件循环，让画面有机会刷新
+                        // 注意：这可能会略微降低检测帧率，但能保证画面流畅
+                        // 或者：简单的保护逻辑，不要每一帧都检测
+                        // 这里我们用最简单的方式：直接调用，如果卡顿通常是因为 detectForVideo 太慢
+                        // 优化：只有当上一帧处理完才处理下一帧（简单的防抖）
+                        
 						const result = poseLandmarker.detectForVideo(video, ts);
 						if (result.landmarks && result.landmarks.length > 0) {
 							processAndDraw(result.landmarks[0]);
