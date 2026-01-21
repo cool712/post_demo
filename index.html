@@ -175,6 +175,11 @@
 						}
 					}
 				} catch (e) {
+					console.warn("Detection skipped:", e);
+				}
+			}
+			/* ================= 4. 处理数据与绘制 ================= */
+			function processAndDraw(lm) {
 				// --- 自动开始录制逻辑 ---
 				if (!isRecording && autoRecordState !== 'RECORDING') {
 					// 计算双腿角度 (左: 23-25-27, 右: 24-26-28)
@@ -184,6 +189,15 @@
 
 					// 判断是否都在 170 度以上 (180 +/- 10)
 					const isReady = leftLegAngle > 170 && rightLegAngle > 170;
+
+                    // 调试信息：显示当前角度状态
+                    ctx.save();
+                    ctx.font = "bold 16px monospace";
+                    ctx.fillStyle = isReady ? "#00ff00" : "#ff0000";
+                    ctx.textAlign = "right";
+                    ctx.fillText(`L:${Math.round(leftLegAngle)}° R:${Math.round(rightLegAngle)}°`, canvas.width - 10, 30);
+                    ctx.fillText(isReady ? "READY" : "STAND STRAIGHT", canvas.width - 10, 50);
+                    ctx.restore();
 
 					if (isReady) {
 						if (autoRecordState === 'IDLE') {
@@ -195,14 +209,17 @@
 
 							// 屏幕变绿 (半透明覆盖)
 							ctx.save();
-							ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+							ctx.fillStyle = "rgba(0, 255, 0, 0.4)"; // 增加不透明度
 							ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 							// 显示倒计时数字
 							ctx.fillStyle = "white";
+							ctx.strokeStyle = "black";
+							ctx.lineWidth = 4;
 							ctx.font = "bold 150px monospace";
 							ctx.textAlign = "center";
 							ctx.textBaseline = "middle";
+							ctx.strokeText(remaining.toString(), canvas.width / 2, canvas.height / 2);
 							ctx.fillText(remaining.toString(), canvas.width / 2, canvas.height / 2);
 							ctx.restore();
 
@@ -221,11 +238,6 @@
 					autoRecordState = 'IDLE';
 				}
 
-					console.warn("Detection skipped:", e);
-				}
-			}
-			/* ================= 4. 处理数据与绘制 ================= */
-			function processAndDraw(lm) {
 				console.log("Point 0 data:", lm[0]);
 				// A. 记录数据 (严格按照 JSON 格式需求)
 				if (isRecording) {
@@ -307,7 +319,11 @@
 				const dot = ab.x * cb.x + ab.y * cb.y;
 				const mag1 = Math.hypot(ab.x, ab.y);
 				const mag2 = Math.hypot(cb.x, cb.y);
-				return Math.acos(dot / (mag1 * mag2)) * 180 / Math.PI;
+				// Protect against division by zero
+				if (mag1 === 0 || mag2 === 0) return 0;
+				// Clamp the value between -1 and 1 to handle floating point errors
+				const cosine = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+				return Math.acos(cosine) * 180 / Math.PI;
 			}
 
 			function drawAngle(a, b, c) {
