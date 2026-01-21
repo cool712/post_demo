@@ -224,40 +224,51 @@
 							// 显示倒计时数字
 							ctx.translate(canvas.width / 2, canvas.height / 2);
 							
-							// 自动检测并旋转文字方向（基于屏幕旋转角度）
-							// window.orientation: 0(竖屏), 90(左横屏), -90(右横屏)
-							// 注意：部分新浏览器使用 screen.orientation.angle
-							let rotation = 0;
+							// 自动检测并旋转文字方向
+							// 策略优先级：
+							// 1. 屏幕/窗口方向 API (最准)
+							// 2. AI 视觉推断 (当 WebView 锁定竖屏但用户横持手机时有效)
+							
+							let rotationAngle = 0;
+
+							// A. 尝试获取设备物理方向
 							if (screen.orientation && screen.orientation.angle) {
-								rotation = screen.orientation.angle;
-							} else if (window.orientation) {
-								rotation = window.orientation;
+								rotationAngle = screen.orientation.angle;
+							} else if (typeof window.orientation !== 'undefined') {
+								rotationAngle = window.orientation;
 							}
 
-							// 如果 canvas 本身没有随屏幕旋转（即 videoWidth/Height 已经对调了），
-							// 通常不需要额外旋转。但如果 canvas 是被强制缩放或者容器旋转了，可能需要反向补偿。
-							// 这里我们尝试最稳妥的方式：根据长宽比判断当前是不是“看起来像横屏但文字竖着”
-							
-							// 方案：如果处于横屏模式（90或-90度），通常希望文字是横向阅读的。
-							// 大多数现代移动浏览器旋转屏幕时会自动旋转页面内容，不需要手动 ctx.rotate。
-							// 如果您遇到文字没转的情况，通常是因为 WebView 锁定了方向，但 Video 流转了。
-							
-							// 尝试强制修正：如果屏幕是横屏的，我们确保文字绘制方向垂直于长边
-							// 但实际上最简单有效的方法通常是：不要手动 translate/rotate，让浏览器自己处理。
-							// 之前的 translate(center) + fillText(0,0) 是标准的居中写法。
-							
-							// 如果之前的方法不行，说明 context 的坐标系没有变。
-							// 让我们尝试根据 rotation 手动旋转 context。
-							if (rotation === 90) {
+							// B. 如果设备方向显示为 0 (竖屏)，但我们怀疑是横屏锁定，
+							// 尝试利用 AI 检测到的人眼连线角度来推断
+							// 左眼: lm[2], 右眼: lm[5]
+							if (rotationAngle === 0 && lm[2] && lm[5]) {
+								const dy = lm[5].y - lm[2].y;
+								const dx = lm[5].x - lm[2].x;
+								// 计算眼睛连线相对于水平线的角度 (弧度)
+								const eyeAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+								
+								// 正常竖屏时，eyeAngle 应该接近 0
+								// 如果手机左旋90度(横屏)，人像在画面里是逆时针转90度，eyeAngle 接近 -90
+								// 如果手机右旋90度，eyeAngle 接近 90
+								
+								if (eyeAngle > 45) {
+									rotationAngle = -90; // 对应手机顺时针转了90度
+								} else if (eyeAngle < -45) {
+									rotationAngle = 90; // 对应手机逆时针转了90度
+								}
+							}
+
+							// 执行旋转
+							if (rotationAngle === 90) {
 								ctx.rotate(-Math.PI / 2);
-							} else if (rotation === -90 || rotation === 270) {
+							} else if (rotationAngle === -90 || rotationAngle === 270) {
 								ctx.rotate(Math.PI / 2);
-							} else if (rotation === 180) {
+							} else if (rotationAngle === 180) {
 								ctx.rotate(Math.PI);
 							}
 
-							ctx.fillStyle = "white";
-							ctx.strokeStyle = "black";
+ 							ctx.fillStyle = "white";
+ 							ctx.strokeStyle = "black";
 							ctx.lineWidth = 4;
 							ctx.font = "bold 150px monospace";
 							ctx.textAlign = "center";
