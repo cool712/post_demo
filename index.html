@@ -427,6 +427,10 @@
 				isRecording = true;
 				autoRecordState = 'RECORDING';
 				console.log("Recording started...");
+				// 通知 Flutter 原生端开始计时
+				if (window.flutter_inappwebview) {
+					window.flutter_inappwebview.callHandler("onRecordStarted");
+				}
 			}
 
 			// 外部调用的 startRecord，现在只作为“开启检测”的开关
