@@ -141,10 +141,16 @@
 			/* ================= 2. AI 初始化 ================= */
 			async function initAI() {
 				try {
-					tip.textContent = "AI loading...";
+					tip.textContent = "Initializing Vision Core...";
+                    // 强制让出主线程，允许 UI 渲染
+                    await new Promise(resolve => setTimeout(resolve, 100));
 
-                    // 优化：使用 requestAnimationFrame 避免阻塞
 					const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+                    
+                    tip.textContent = "Loading Pose Model (Heavy)...";
+                    // 再次强制让出主线程
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
 					poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
 						baseOptions: {
 							modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
@@ -155,7 +161,7 @@
 					});
 					tip.textContent = "AI Ready";
 				} catch (err) {
-					tip.textContent = "AI Load Failed";
+					tip.textContent = "AI Load Failed: " + (err.message || err);
 				}
 			}
 
