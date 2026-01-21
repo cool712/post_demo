@@ -263,12 +263,21 @@
 							// 注意：这里需要配合 translate 使用。
 							// 因为旋转是绕原点(0,0)进行的，而我们已经 translate 到了 canvas 中心。
 							// 所以旋转后坐标系变了，绘制文字的 (0,0) 依然是视觉中心。
+							
+							// 用户反馈：之前差了顺时针 90 度
+							// 90度时，之前是顺时针90度 (PI/2)，现在改为 PI (转180度) 还是 0？
+							// 如果差了顺时针90度，意味着我们需要 逆时针转90度 (-PI/2) 来抵消？
+							// 或者是在原基础上再加 90 度。
+							
 							if (rotationAngle === 90) {
-								ctx.rotate(Math.PI / 2);
+								ctx.rotate(Math.PI); 
 							} else if (rotationAngle === -90 || rotationAngle === 270) {
-								ctx.rotate(-Math.PI / 2);
+								ctx.rotate(0);
 							} else if (rotationAngle === 180) {
-								ctx.rotate(Math.PI);
+								ctx.rotate(-Math.PI / 2);
+							} else {
+								// 竖屏 0 度时，如果是“差90度”，可能默认就需要转 90
+								ctx.rotate(Math.PI / 2);
 							}
 
  							ctx.fillStyle = "white";
