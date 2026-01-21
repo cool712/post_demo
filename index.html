@@ -263,7 +263,11 @@
 							// -90 -> -PI/2
 							
 							// 修正偏移：根据用户反馈竖屏差90度，我们默认 +90
-							const offset = 90 * Math.PI / 180; 
+							// 用户最新反馈：无论横屏竖屏都多了 90 度
+							// 所以我们需要减去 90 度 (或者 +270)
+							// 之前的 offset 是 90 (PI/2)。
+							// 既然多了 90，那我们就把 offset 设为 0。
+							const offset = 0; 
 							
 							if (currentDeviceRotation === 0) {
 								ctx.rotate(0 + offset); 
