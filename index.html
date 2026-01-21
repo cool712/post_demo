@@ -141,16 +141,9 @@
 			/* ================= 2. AI 初始化 ================= */
 			async function initAI() {
 				try {
-					tip.textContent = "Initializing Vision Core...";
-                    // 强制让出主线程，允许 UI 渲染
-                    await new Promise(resolve => setTimeout(resolve, 100));
+					tip.textContent = "AI loading...";
 
 					const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-                    
-                    tip.textContent = "Loading Pose Model (Heavy)...";
-                    // 再次强制让出主线程
-                    await new Promise(resolve => setTimeout(resolve, 100));
-
 					poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
 						baseOptions: {
 							modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
@@ -161,7 +154,7 @@
 					});
 					tip.textContent = "AI Ready";
 				} catch (err) {
-					tip.textContent = "AI Load Failed: " + (err.message || err);
+					tip.textContent = "AI Load Failed";
 				}
 			}
 
@@ -171,14 +164,6 @@
 
 				// 只要摄像头跑起来了 (running === true)，就开始画画
 				if (!running) return;
-
-				// 自动调整画布尺寸以适应视频流变化（如旋转）
-				if (video.videoWidth > 0 && video.videoHeight > 0) {
-					if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-						canvas.width = video.videoWidth;
-						canvas.height = video.videoHeight;
-					}
-				}
 
 				// Draw video frame to canvas so it can be recorded
 				ctx.save();
@@ -208,15 +193,8 @@
 					lastFpsCheck = ts;
 				}
 
-                // 异步处理 AI 检测，防止阻塞 UI 线程
 				try {
 					if (video.readyState >= 2) {
-                        // 使用 setTimeout 将耗时的 AI 检测放到下一个事件循环，让画面有机会刷新
-                        // 注意：这可能会略微降低检测帧率，但能保证画面流畅
-                        // 或者：简单的保护逻辑，不要每一帧都检测
-                        // 这里我们用最简单的方式：直接调用，如果卡顿通常是因为 detectForVideo 太慢
-                        // 优化：只有当上一帧处理完才处理下一帧（简单的防抖）
-                        
 						const result = poseLandmarker.detectForVideo(video, ts);
 						if (result.landmarks && result.landmarks.length > 0) {
 							processAndDraw(result.landmarks[0]);
