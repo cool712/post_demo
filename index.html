@@ -139,6 +139,14 @@
 				// 只要摄像头跑起来了 (running === true)，就开始画画
 				if (!running) return;
 
+				// 自动调整画布尺寸以适应视频流变化（如旋转）
+				if (video.videoWidth > 0 && video.videoHeight > 0) {
+					if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+						canvas.width = video.videoWidth;
+						canvas.height = video.videoHeight;
+					}
+				}
+
 				// Draw video frame to canvas so it can be recorded
 				ctx.save();
 				if (facingMode === "user") {
@@ -214,14 +222,23 @@
 							ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 							// 显示倒计时数字
+							ctx.translate(canvas.width / 2, canvas.height / 2);
+							// 根据屏幕旋转角度调整文字方向
+							// 注意：canvas 尺寸已经跟随视频调整，通常不需要额外旋转，
+							// 但如果是在某些锁定方向的 WebView 中，可能需要反向补偿。
+							// 这里假设 canvas.width > canvas.height 时为横屏，反之为竖屏。
+							// 如果屏幕旋转了但 canvas 没旋转（例如 resize 没生效），这行会有帮助。
+							// 但既然我们修复了 resize，文字应该自然居中。
+							// 额外的：确保文字始终“正向”阅读。
+							
 							ctx.fillStyle = "white";
 							ctx.strokeStyle = "black";
 							ctx.lineWidth = 4;
 							ctx.font = "bold 150px monospace";
 							ctx.textAlign = "center";
 							ctx.textBaseline = "middle";
-							ctx.strokeText(remaining.toString(), canvas.width / 2, canvas.height / 2);
-							ctx.fillText(remaining.toString(), canvas.width / 2, canvas.height / 2);
+							ctx.strokeText(remaining.toString(), 0, 0);
+							ctx.fillText(remaining.toString(), 0, 0);
 							ctx.restore();
 
 							if (elapsed >= COUNTDOWN_DURATION) {
