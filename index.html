@@ -282,8 +282,10 @@
 							} else if (rotationAngle === 180) {
 								ctx.rotate(Math.PI);
 							} else {
-								// 竖屏 0 度：用户反馈少了 90 度 -> 补上 90 度
-								ctx.rotate(Math.PI / 2);
+								// 竖屏 0 度：
+								// 之前的尝试：0度(用户说少90)，90度(用户说还差90)。
+								// 尝试 -90 度 (270度)
+								ctx.rotate(-Math.PI / 2);
 							}
 
  							ctx.fillStyle = "white";
@@ -294,6 +296,11 @@
 							ctx.textBaseline = "middle";
 							ctx.strokeText(remaining.toString(), 0, 0);
 							ctx.fillText(remaining.toString(), 0, 0);
+							
+							// 调试：显示旋转角度信息，方便定位问题
+							ctx.font = "bold 20px monospace";
+							ctx.fillText(`R:${rotationAngle}`, 0, 100);
+							
 							ctx.restore(); // 对应 ctx.save() 用于文字旋转
 
 							if (elapsed >= COUNTDOWN_DURATION) {
