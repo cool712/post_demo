@@ -140,22 +140,25 @@
 
 			/* ================= 2. AI 初始化 ================= */
 			async function initAI() {
-				try {
-					tip.textContent = "AI loading...";
+                // 使用 setTimeout 将 AI 初始化推迟到下一帧，给浏览器渲染的机会
+                setTimeout(async () => {
+                    try {
+                        tip.textContent = "AI loading...";
 
-					const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-					poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-						baseOptions: {
-							modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
-							delegate: "GPU"
-						},
-						runningMode: "VIDEO",
-						numPoses: 1
-					});
-					tip.textContent = "AI Ready";
-				} catch (err) {
-					tip.textContent = "AI Load Failed";
-				}
+                        const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+                        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+                            baseOptions: {
+                                modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
+                                delegate: "GPU"
+                            },
+                            runningMode: "VIDEO",
+                            numPoses: 1
+                        });
+                        tip.textContent = "AI Ready";
+                    } catch (err) {
+                        tip.textContent = "AI Load Failed";
+                    }
+                }, 100);
 			}
 
 			/* ================= 3. 主循环 ================= */
