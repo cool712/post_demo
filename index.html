@@ -74,7 +74,7 @@
 			let lastFpsCheck = 0;
 
 			// 自动录制状态机
-			let autoRecordState = 'IDLE'; // 'IDLE' | 'COUNTDOWN' | 'RECORDING'
+			let autoRecordState = 'DISABLED'; // 'DISABLED' | 'IDLE' | 'COUNTDOWN' | 'RECORDING'
 			let countdownStartTime = 0;
 			const COUNTDOWN_DURATION = 3000; // 3秒倒计时
 
@@ -181,7 +181,8 @@
 			/* ================= 4. 处理数据与绘制 ================= */
 			function processAndDraw(lm) {
 				// --- 自动开始录制逻辑 ---
-				if (!isRecording && autoRecordState !== 'RECORDING') {
+				// 只有当状态机处于 IDLE (等待姿势) 或 COUNTDOWN (倒计时) 时才进行判断
+				if (!isRecording && (autoRecordState === 'IDLE' || autoRecordState === 'COUNTDOWN')) {
 					// 计算双腿角度 (左: 23-25-27, 右: 24-26-28)
 					// calcAngle 返回 0~180。直立时接近 180
 					const leftLegAngle = calcAngle(lm[23], lm[25], lm[27]);
@@ -224,19 +225,15 @@
 							ctx.restore();
 
 							if (elapsed >= COUNTDOWN_DURATION) {
-								// 倒计时结束，开始录制
-								window.startRecord();
-								autoRecordState = 'RECORDING';
+								// 倒计时结束，真正开始录制
+								_startMediaRecorder();
 							}
 						}
 					} else {
 						// 姿势不满足，重置倒计时
 						autoRecordState = 'IDLE';
 					}
-				} else if (!isRecording && autoRecordState === 'RECORDING') {
-					// 如果外部停止了录制，重置状态
-					autoRecordState = 'IDLE';
-				}
+				} 
 
 				console.log("Point 0 data:", lm[0]);
 				// A. 记录数据 (严格按照 JSON 格式需求)
@@ -338,7 +335,8 @@
 			let mediaRecorder;
 			let recordedChunks = [];
 
-			window.startRecord = function() {
+			// 真正开始录制的内部函数
+			function _startMediaRecorder() {
 				recordedChunks = [];
 				poseDataJson = {};
 				currentRecordFrameIndex = 0;
@@ -361,8 +359,17 @@
 				};
 				mediaRecorder.start();
 				isRecording = true;
+				autoRecordState = 'RECORDING';
 				console.log("Recording started...");
+			}
+
+			// 外部调用的 startRecord，现在只作为“开启检测”的开关
+			window.startRecord = function() {
+				console.log("进入姿势检测模式...");
+				autoRecordState = 'IDLE'; // 进入 IDLE 状态，等待姿势满足
+				countdownStartTime = 0;
 			};
+			
 			// 暂停拍摄
 			window.pauseRecord = function() {
     if (!mediaRecorder) return;
@@ -376,6 +383,9 @@
             let lastJsonBlob = null;
 
 			window.stopAndUpload = async function(uploadUrl, token, analyzeUrl,logId) {
+				// 重置自动录制状态
+				autoRecordState = 'DISABLED';
+
 				// 核心：如果已经停止录制了，说明是“重试”行为，直接走上传逻辑
     if (mediaRecorder && mediaRecorder.state === "inactive") {
         if (lastVideoBlob) {
