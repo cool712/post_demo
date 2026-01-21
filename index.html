@@ -282,8 +282,8 @@
 							} else if (rotationAngle === 180) {
 								ctx.rotate(Math.PI);
 							} else {
-								// 竖屏 0 度保持不转
-								ctx.rotate(0);
+								// 竖屏 0 度：用户反馈少了 90 度 -> 补上 90 度
+								ctx.rotate(Math.PI / 2);
 							}
 
  							ctx.fillStyle = "white";
