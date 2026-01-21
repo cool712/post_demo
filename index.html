@@ -283,9 +283,9 @@
 								ctx.rotate(Math.PI);
 							} else {
 								// 竖屏 0 度：
-								// 之前的尝试：0度(用户说少90)，90度(用户说还差90)。
-								// 尝试 -90 度 (270度)
-								ctx.rotate(-Math.PI / 2);
+								// 之前的尝试：-90度 -> 口朝下(顺时针90度)
+								// 推论：需要再逆时针转 90 度，即 -180 度 (Math.PI)
+								ctx.rotate(Math.PI);
 							}
 
  							ctx.fillStyle = "white";
