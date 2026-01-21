@@ -140,25 +140,25 @@
 
 			/* ================= 2. AI 初始化 ================= */
 			async function initAI() {
-                // 使用 setTimeout 将 AI 初始化推迟到下一帧，给浏览器渲染的机会
-                setTimeout(async () => {
-                    try {
-                        tip.textContent = "AI loading...";
+				// 将初始化逻辑完全移出当前调用栈，避免 main() 函数中的同步阻塞影响首帧渲染
+				setTimeout(async () => {
+					try {
+						tip.textContent = "AI loading...";
 
-                        const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-                        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-                            baseOptions: {
-                                modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
-                                delegate: "GPU"
-                            },
-                            runningMode: "VIDEO",
-                            numPoses: 1
-                        });
-                        tip.textContent = "AI Ready";
-                    } catch (err) {
-                        tip.textContent = "AI Load Failed";
-                    }
-                }, 100);
+						const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+						poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+							baseOptions: {
+								modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
+								delegate: "GPU"
+							},
+							runningMode: "VIDEO",
+							numPoses: 1
+						});
+						tip.textContent = "AI Ready";
+					} catch (err) {
+						tip.textContent = "AI Load Failed";
+					}
+				}, 1000); // 延迟 1 秒再开始加载 AI，确保摄像头画面已经跑起来了
 			}
 
 			/* ================= 3. 主循环 ================= */
