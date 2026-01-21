@@ -352,17 +352,17 @@ async function performUploadAction(uploadUrl, token, analyzeUrl) {
                     "data_json": poseDataJson // 传入识别到的骨架 JSON
                 })
             });
-			await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    "video_url": videoUrl,
-                    "data_json": poseDataJson // 传入识别到的骨架 JSON
-                })
-            });
+			// await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //         "Authorization": `Bearer ${token}`
+            //     },
+            //     body: JSON.stringify({
+            //         "video_url": videoUrl,
+            //         "data_json": poseDataJson // 传入识别到的骨架 JSON
+            //     })
+            // });
             const analyzeData = await analyzeRes.json();
 			if (analyzeData.code === 200) {
                 // 成功：返回 analyzeData 里的 data 部分
