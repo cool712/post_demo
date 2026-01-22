@@ -36,11 +36,39 @@
 				font-family: monospace;
 				font-size: 11px;
 			}
+
+            #status-toast {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.85);
+                color: #fff;
+                padding: 24px 48px;
+                border-radius: 16px;
+                font-size: 28px;
+                font-weight: bold;
+                text-align: center;
+                pointer-events: none;
+                z-index: 20;
+                opacity: 0;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            }
+            #status-toast.show {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            #status-toast.hide {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
 		</style>
 	</head>
 
 	<body>
 		<div id="tip">Initializing...</div>
+        <div id="status-toast">请站在红框内</div>
 		<video id="video" autoplay playsinline muted></video>
 		<canvas id="canvas"></canvas>
 
@@ -61,6 +89,24 @@
 				alpha: true
 			});
 			const tip = document.getElementById("tip");
+            const statusToast = document.getElementById("status-toast");
+
+            function showToast(msg) {
+                if (statusToast.textContent !== msg) {
+                    statusToast.textContent = msg;
+                }
+                if (!statusToast.classList.contains("show")) {
+                    statusToast.classList.remove("hide");
+                    statusToast.classList.add("show");
+                }
+            }
+
+            function hideToast() {
+                if (statusToast.classList.contains("show")) {
+                    statusToast.classList.remove("show");
+                    statusToast.classList.add("hide");
+                }
+            }
 			/* ---------- 状态 ---------- */
 			let poseLandmarker = null;
 			let running = false;
@@ -76,7 +122,8 @@
             // 新增：上一帧的骨架数据，用于计算静止状态
             let lastFrameLandmarks = null;
             // 新增：安全区域定义 (归一化坐标 0~1)
-            const SAFE_ZONE = { x: 0.1, y: 0.1, w: 0.8, h: 0.8 }; 
+            // 调整为更窄的矩形，适应站立姿势 (x:0.2, w:0.6 意味着左右各留20%)
+            const SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 }; 
             // 新增：关键点索引 (鼻子, 肩, 肘, 腕, 胯, 膝, 踝)
             const KEY_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 
@@ -213,7 +260,17 @@
 						const result = poseLandmarker.detectForVideo(video, ts);
 						if (result.landmarks && result.landmarks.length > 0) {
 							processAndDraw(result.landmarks[0]);
-						}
+						} else {
+                            // 未检测到人
+                            if (!isRecording && autoRecordState !== 'DISABLED') {
+                                showToast("请站在红框内");
+                                // 如果正在倒计时，没人了，需要重置
+                                if (autoRecordState === 'COUNTDOWN') {
+                                    autoRecordState = 'IDLE';
+                                    console.log("倒计时中断：失去目标");
+                                }
+                            }
+                        }
 					}
 				} catch (e) {
 					console.warn("Detection skipped:", e);
@@ -255,13 +312,20 @@
                     // 保存当前帧作为下一帧的对比
                     lastFrameLandmarks = lm;
 
+                    // 控制 Toast 显示/隐藏
+                    if (!isReady) {
+                        showToast(statusText);
+                    } else {
+                        hideToast();
+                    }
+
 					// 绘制调试信息
                     ctx.save();
                     ctx.font = "bold 16px monospace";
                     ctx.fillStyle = isReady ? "#00ff00" : "#ff0000";
                     ctx.textAlign = "right";
                     ctx.fillText(`L:${Math.round(leftLegAngle)}° R:${Math.round(rightLegAngle)}°`, canvas.width - 10, 30);
-                    ctx.fillText(statusText, canvas.width - 10, 50);
+                    // ctx.fillText(statusText, canvas.width - 10, 50); // 移除 Canvas 上的状态文字
                     ctx.restore();
 
 					if (isReady) {
@@ -386,9 +450,9 @@
             // 新增：绘制安全红框
             function drawSafeZone() {
                 ctx.save();
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
-                ctx.lineWidth = 4;
-                ctx.setLineDash([10, 5]); // 虚线效果
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.6)";
+                ctx.lineWidth = 6; // 加粗边框
+                ctx.setLineDash([20, 10]); // 更明显的虚线
                 
                 // 计算 Canvas 上的实际坐标
                 const x = canvas.width * SAFE_ZONE.x;
@@ -398,10 +462,11 @@
                 
                 ctx.strokeRect(x, y, w, h);
                 
-                // 绘制提示文字
-                ctx.font = "16px sans-serif";
+                // 绘制红框顶部的提示文字 (标题)
+                ctx.font = "bold 20px sans-serif";
                 ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
-                ctx.fillText("请站在红框内", x + 5, y + 25);
+                ctx.textAlign = "center";
+                ctx.fillText("检测区域", x + w / 2, y - 10);
                 
                 ctx.restore();
             }
@@ -646,6 +711,28 @@
                     window.flutter_inappwebview.callHandler("onUploadComplete", {
                         success: false,
                         error: err.toString()
+                    });
+                }
+            }
+
+			window.toggleCamera = async () => {
+				running = false;
+				facingMode = facingMode === "user" ? "environment" : "user";
+				await startCamera();
+				return facingMode;
+			};
+
+			/* ================= 启动 ================= */
+			async function main() {
+				await startCamera();
+				requestAnimationFrame(loop);
+				// Delay AI init slightly to ensure first frame renders
+				setTimeout(initAI, 100);
+			}
+			main();
+		</script>
+	</body>
+</html>                 error: err.toString()
                     });
                 }
             }
