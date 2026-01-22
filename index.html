@@ -259,6 +259,29 @@
 				// 只要摄像头跑起来了 (running === true)，就开始画画
 				if (!running) return;
 
+				// --- 第一部分：如果 AI 模型还没加载完，优先保证视频流畅度 ---
+                // 此时不将 video 绘制到 canvas 上 (drawImage 会阻塞)，而是清空 canvas
+                // 让用户透过透明的 canvas 看到底层的 video 元素，避免主线程阻塞导致的画面卡顿
+				if (!poseLandmarker) {
+					// 可以在屏幕上提示用户正在加载 AI
+					tip.textContent = "Camera Ready | AI Loading...";
+                    
+                    // 清空 Canvas，露出底下的 Video
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // 绘制红框 (仅在未开始录制时)
+                    if (!isRecording) {
+                        // 动态调整 SAFE_ZONE 比例 (保持逻辑一致)
+                        if (canvas.width > canvas.height) {
+                            SAFE_ZONE = { x: 0.35, y: 0.1, w: 0.3, h: 0.8 };
+                        } else {
+                            SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 };
+                        }
+                        drawSafeZone();
+                    }
+					return;
+				}
+
 				// Draw video frame to canvas so it can be recorded
 				ctx.save();
 				if (facingMode === "user") {
@@ -281,13 +304,6 @@
                     }
                     drawSafeZone();
                 }
-
-				// --- 第二部分：如果 AI 模型还没加载完，到此为止，不跑后面的检测逻辑 ---
-				if (!poseLandmarker) {
-					// 可以在屏幕上提示用户正在加载 AI
-					tip.textContent = "Camera Ready | AI Loading...";
-					return;
-				}
 
 				// --- 第三部分：AI 检测与骨架绘制 (只有 AI 好了才会跑这里) ---
 				frameCount++;
