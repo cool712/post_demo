@@ -57,11 +57,11 @@
             }
             #status-toast.show {
                 opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
+                /* transform 由 JS 动态控制，这里移除固定的 scale */
             }
             #status-toast.hide {
                 opacity: 0;
-                transform: translate(-50%, -50%) scale(0.9);
+                /* transform 由 JS 动态控制 */
             }
 		</style>
 	</head>
@@ -99,6 +99,7 @@
                     statusToast.classList.remove("hide");
                     statusToast.classList.add("show");
                 }
+                updateToastRotation();
             }
 
             function hideToast() {
@@ -106,6 +107,42 @@
                     statusToast.classList.remove("show");
                     statusToast.classList.add("hide");
                 }
+            }
+
+            function updateToastRotation() {
+                // 根据当前设备旋转角度旋转 Toast
+                // 基础变换：居中
+                let transform = "translate(-50%, -50%)";
+                
+                // 旋转逻辑：
+                // 0度 (竖屏): 不旋转
+                // 90度 (左横屏): 逆时针90度 (让文字正对左边) -> rotate(90deg)
+                // -90度 (右横屏): 顺时针90度 -> rotate(-90deg)
+                // 180度 (倒立): rotate(180deg)
+                
+                // 注意：CSS rotate 是顺时针。
+                // 如果设备向左转了90度 (gamma=90)，屏幕左边变成了"上"。文字要想"正"，需要顺时针转90度。
+                // 修正：currentDeviceRotation 是根据 gamma/beta 计算的。
+                // 0: Portrait
+                // 90: Landscape Left (Home右) -> 屏幕内容看起来是横的。如果文字要"正"，需要旋转90度。
+                // -90: Landscape Right (Home左) -> rotate(-90deg)
+                
+                if (currentDeviceRotation === 90) {
+                     transform += " rotate(90deg)";
+                } else if (currentDeviceRotation === -90) {
+                     transform += " rotate(-90deg)";
+                } else if (currentDeviceRotation === 180) {
+                     transform += " rotate(180deg)";
+                }
+                
+                // 如果是隐藏状态，缩小一点
+                if (statusToast.classList.contains("hide")) {
+                    transform += " scale(0.9)";
+                } else {
+                    transform += " scale(1)";
+                }
+
+                statusToast.style.transform = transform;
             }
 			/* ---------- 状态 ---------- */
 			let poseLandmarker = null;
@@ -122,8 +159,8 @@
             // 新增：上一帧的骨架数据，用于计算静止状态
             let lastFrameLandmarks = null;
             // 新增：安全区域定义 (归一化坐标 0~1)
-            // 调整为更窄的矩形，适应站立姿势 (x:0.2, w:0.6 意味着左右各留20%)
-            const SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 }; 
+            // 改为 let 以便根据屏幕比例动态调整
+            let SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 }; 
             // 新增：关键点索引 (鼻子, 肩, 肘, 腕, 胯, 膝, 踝)
             const KEY_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 
@@ -233,6 +270,15 @@
 
                 // 0. 绘制红框 (仅在未开始录制时)
                 if (!isRecording) {
+                    // 动态调整 SAFE_ZONE 比例
+                    if (canvas.width > canvas.height) {
+                        // 横屏模式：使用更窄的中间区域，确保是"站立"的长方形
+                        // 目标长宽比大约 1:2.5
+                        SAFE_ZONE = { x: 0.35, y: 0.1, w: 0.3, h: 0.8 };
+                    } else {
+                        // 竖屏模式：默认
+                        SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 };
+                    }
                     drawSafeZone();
                 }
 
@@ -463,12 +509,41 @@
                 ctx.strokeRect(x, y, w, h);
                 
                 // 绘制红框顶部的提示文字 (标题)
+                ctx.save(); // 保存当前状态以便旋转文字
                 ctx.font = "bold 20px sans-serif";
                 ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
                 ctx.textAlign = "center";
-                ctx.fillText("检测区域", x + w / 2, y - 10);
+                ctx.textBaseline = "middle";
+
+                // 计算文字位置并旋转
+                let textX = x + w / 2;
+                let textY = y - 15;
                 
-                ctx.restore();
+                // 根据设备旋转调整文字位置和角度
+                if (currentDeviceRotation === 90) {
+                    // 左横屏：文字应该在红框的"左侧" (视觉上的上方)
+                    // 坐标系顺时针旋转90度
+                    ctx.translate(x - 15, y + h / 2);
+                    ctx.rotate(Math.PI / 2);
+                    ctx.fillText("检测区域", 0, 0);
+                } else if (currentDeviceRotation === -90) {
+                    // 右横屏：文字应该在红框的"右侧" (视觉上的上方)
+                    ctx.translate(x + w + 15, y + h / 2);
+                    ctx.rotate(-Math.PI / 2);
+                    ctx.fillText("检测区域", 0, 0);
+                } else if (currentDeviceRotation === 180) {
+                    // 倒立
+                    ctx.translate(x + w / 2, y + h + 15);
+                    ctx.rotate(Math.PI);
+                    ctx.fillText("检测区域", 0, 0);
+                } else {
+                    // 正常竖屏
+                    ctx.fillText("检测区域", textX, textY);
+                }
+                
+                ctx.restore(); // 恢复文字旋转前的状态
+                
+                ctx.restore(); // 恢复 drawSafeZone 最开始的 save
             }
 
             // 新增：检测是否在框内且可见
