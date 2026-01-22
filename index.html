@@ -633,6 +633,7 @@
 			window.stopAndUpload = async function(uploadUrl, token, analyzeUrl,logId) {
 				// 重置自动录制状态
 				autoRecordState = 'DISABLED';
+                hideToast();
 
 				// 核心：如果已经停止录制了，说明是“重试”行为，直接走上传逻辑
                 if (mediaRecorder && mediaRecorder.state === "inactive") {
