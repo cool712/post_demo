@@ -73,6 +73,13 @@
 			let frameCount = 0;
 			let lastFpsCheck = 0;
 
+            // 新增：上一帧的骨架数据，用于计算静止状态
+            let lastFrameLandmarks = null;
+            // 新增：安全区域定义 (归一化坐标 0~1)
+            const SAFE_ZONE = { x: 0.1, y: 0.1, w: 0.8, h: 0.8 }; 
+            // 新增：关键点索引 (鼻子, 肩, 肘, 腕, 胯, 膝, 踝)
+            const KEY_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+
 			// 自动录制状态机
 			let autoRecordState = 'DISABLED'; // 'DISABLED' | 'IDLE' | 'COUNTDOWN' | 'RECORDING'
 			let countdownStartTime = 0;
@@ -177,6 +184,11 @@
 				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 				ctx.restore();
 
+                // 0. 绘制红框 (仅在未开始录制时)
+                if (!isRecording) {
+                    drawSafeZone();
+                }
+
 				// --- 第二部分：如果 AI 模型还没加载完，到此为止，不跑后面的检测逻辑 ---
 				if (!poseLandmarker) {
 					// 可以在屏幕上提示用户正在加载 AI
@@ -207,26 +219,49 @@
 					console.warn("Detection skipped:", e);
 				}
 			}
+
 			/* ================= 4. 处理数据与绘制 ================= */
 			function processAndDraw(lm) {
 				// --- 自动开始录制逻辑 ---
 				// 只有当状态机处于 IDLE (等待姿势) 或 COUNTDOWN (倒计时) 时才进行判断
 				if (!isRecording && (autoRecordState === 'IDLE' || autoRecordState === 'COUNTDOWN')) {
-					// 计算双腿角度 (左: 23-25-27, 右: 24-26-28)
-					// calcAngle 返回 0~180。直立时接近 180
+                    
+                    // 1. 检测是否在框内且可见
+                    const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
+                    
+                    // 2. 检测是否静止
+                    const { isStatic, msg: staticMsg } = checkIsStatic(lm);
+
+					// 3. 计算双腿角度 (原有逻辑)
 					const leftLegAngle = calcAngle(lm[23], lm[25], lm[27]);
 					const rightLegAngle = calcAngle(lm[24], lm[26], lm[28]);
+					const isPoseCorrect = leftLegAngle > 170 && rightLegAngle > 170;
 
-					// 判断是否都在 170 度以上 (180 +/- 10)
-					const isReady = leftLegAngle > 170 && rightLegAngle > 170;
+                    // 综合判断状态
+                    let statusText = "";
+                    let isReady = false;
 
-                    // 调试信息：显示当前角度状态
+                    if (!inFrame) {
+                        statusText = frameMsg; // "请全身入镜" 或 "请站在红框内"
+                    } else if (!isStatic) {
+                        statusText = "请保持静止";
+                    } else if (!isPoseCorrect) {
+                        statusText = "请直立身体";
+                    } else {
+                        isReady = true;
+                        statusText = "准备就绪";
+                    }
+
+                    // 保存当前帧作为下一帧的对比
+                    lastFrameLandmarks = lm;
+
+					// 绘制调试信息
                     ctx.save();
                     ctx.font = "bold 16px monospace";
                     ctx.fillStyle = isReady ? "#00ff00" : "#ff0000";
                     ctx.textAlign = "right";
                     ctx.fillText(`L:${Math.round(leftLegAngle)}° R:${Math.round(rightLegAngle)}°`, canvas.width - 10, 30);
-                    ctx.fillText(isReady ? "READY" : "STAND STRAIGHT", canvas.width - 10, 50);
+                    ctx.fillText(statusText, canvas.width - 10, 50);
                     ctx.restore();
 
 					if (isReady) {
@@ -246,24 +281,8 @@
 							ctx.save(); // 嵌套一层 save，专门用于文字旋转
 							ctx.translate(canvas.width / 2, canvas.height / 2);
 							
-							// 使用 deviceorientation 获取的实时角度
-							// 根据之前的调试经验：
-							// 0度(竖屏) -> 需要旋转 90 度 (Math.PI/2) 才能变正？(基于之前的反馈)
-							// 90度(左横屏) -> 需要旋转 180 度 (Math.PI)？
-							// 让我们先按标准逻辑写，并加上偏移量方便调整
-							
-							// 基础旋转：
-							// 0 -> 0
-							// 90 -> PI/2
-							// -90 -> -PI/2
-							
-							// 修正偏移：根据用户反馈竖屏差90度，我们默认 +90
-							// 用户最新反馈：无论横屏竖屏都多了 90 度
-							// 所以我们需要减去 90 度 (或者 +270)
-							// 之前的 offset 是 90 (PI/2)。
-							// 既然多了 90，那我们就把 offset 设为 0。
+							// 旋转逻辑保持不变
 							const offset = 0; 
-							
 							if (currentDeviceRotation === 0) {
 								ctx.rotate(0 + offset); 
 							} else if (currentDeviceRotation === 90) {
@@ -282,11 +301,10 @@
 							ctx.textBaseline = "middle";
 							ctx.strokeText(remaining.toString(), 0, 0);
 							ctx.fillText(remaining.toString(), 0, 0);
-							
-							// 调试信息
-							ctx.font = "bold 20px monospace";
-							ctx.fillStyle = "red";
-							ctx.fillText(`Rot:${currentDeviceRotation}`, 0, 100);
+                            
+                            // 提示保持静止
+                            ctx.font = "bold 30px monospace";
+                            ctx.fillText("保持不动", 0, 100);
 							
 							ctx.restore(); // 对应 ctx.save() 用于文字旋转
 
@@ -296,7 +314,10 @@
 							}
 						}
 					} else {
-						// 姿势不满足，重置倒计时
+						// 任何条件不满足（出框、乱动、姿势不对），立即重置倒计时
+                        if (autoRecordState === 'COUNTDOWN') {
+                            console.log("倒计时中断：条件不再满足");
+                        }
 						autoRecordState = 'IDLE';
 					}
 				} 
@@ -362,6 +383,96 @@
 			}
 
 			/* ================= 5. 工具函数 ================= */
+            // 新增：绘制安全红框
+            function drawSafeZone() {
+                ctx.save();
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+                ctx.lineWidth = 4;
+                ctx.setLineDash([10, 5]); // 虚线效果
+                
+                // 计算 Canvas 上的实际坐标
+                const x = canvas.width * SAFE_ZONE.x;
+                const y = canvas.height * SAFE_ZONE.y;
+                const w = canvas.width * SAFE_ZONE.w;
+                const h = canvas.height * SAFE_ZONE.h;
+                
+                ctx.strokeRect(x, y, w, h);
+                
+                // 绘制提示文字
+                ctx.font = "16px sans-serif";
+                ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+                ctx.fillText("请站在红框内", x + 5, y + 25);
+                
+                ctx.restore();
+            }
+
+            // 新增：检测是否在框内且可见
+            function checkBodyInFrame(lm) {
+                // 1. 检查可见性 (Visibility)
+                // MediaPipe visibility 0~1, 一般 > 0.5 算可见
+                const VISIBILITY_THRESHOLD = 0.5;
+                for (let i of KEY_LANDMARKS) {
+                    if (!lm[i] || lm[i].visibility < VISIBILITY_THRESHOLD) {
+                        return { inFrame: false, msg: "关键点未被捕捉" };
+                    }
+                }
+
+                // 2. 检查是否在红框内 (Boundary)
+                // lm[i].x, lm[i].y 是 0~1 的归一化坐标
+                // SAFE_ZONE: x, y, w, h
+                const xMin = SAFE_ZONE.x;
+                const xMax = SAFE_ZONE.x + SAFE_ZONE.w;
+                const yMin = SAFE_ZONE.y;
+                const yMax = SAFE_ZONE.y + SAFE_ZONE.h;
+
+                for (let i of KEY_LANDMARKS) {
+                    const p = lm[i];
+                    // 注意：如果是前置摄像头(mirror)，x 坐标可能需要反转判断？
+                    // MediaPipe 输出的 landmarks 坐标已经是归一化后的，通常 x 是从左到右 0->1
+                    // 我们的 toCanvas 做了翻转处理，但这里是直接判断原始数据
+                    // 原始数据：左上角 (0,0)
+                    
+                    if (p.x < xMin || p.x > xMax || p.y < yMin || p.y > yMax) {
+                        return { inFrame: false, msg: "请移动到红框内" };
+                    }
+                }
+
+                return { inFrame: true, msg: "位置正确" };
+            }
+
+            // 新增：检测是否静止
+            function checkIsStatic(currentLm) {
+                if (!lastFrameLandmarks) return { isStatic: false, msg: "初始化..." };
+
+                let totalMovement = 0;
+                let count = 0;
+                
+                // 只计算躯干核心点的移动幅度 (肩、胯)
+                const STATIC_CHECK_POINTS = [11, 12, 23, 24];
+                
+                for (let i of STATIC_CHECK_POINTS) {
+                    const curr = currentLm[i];
+                    const last = lastFrameLandmarks[i];
+                    
+                    // 计算欧氏距离
+                    const dist = Math.hypot(curr.x - last.x, curr.y - last.y);
+                    totalMovement += dist;
+                    count++;
+                }
+
+                const avgMovement = totalMovement / count;
+                
+                // 阈值：根据实际体验调整，太小太灵敏，太大检测不到晃动
+                // 0.002 大约是画面宽度的 0.2%
+                const MOVEMENT_THRESHOLD = 0.005; 
+
+                if (avgMovement > MOVEMENT_THRESHOLD) {
+                    return { isStatic: false, msg: "身体晃动过大" };
+                }
+
+                return { isStatic: true, msg: "静止" };
+            }
+
 			function toCanvas(p) {
 				let x = (facingMode === "user") ? (1 - p.x) : p.x;
 				return {
@@ -442,12 +553,14 @@
 			
 			// 暂停拍摄
 			window.pauseRecord = function() {
-    if (!mediaRecorder) return;
-    if (mediaRecorder.state === "recording") {
-        mediaRecorder.pause(); // 暂停硬件录制
-    } else if (mediaRecorder.state === "paused") {
-        mediaRecorder.resume(); // 恢复硬件录制
-    }};
+                if (!mediaRecorder) return;
+                if (mediaRecorder.state === "recording") {
+                    mediaRecorder.pause(); // 暂停硬件录制
+                } else if (mediaRecorder.state === "paused") {
+                    mediaRecorder.resume(); // 恢复硬件录制
+                }
+            };
+
             // 修改上传逻辑，确保可以二次上传
             let lastVideoBlob = null;
             let lastJsonBlob = null;
@@ -457,84 +570,86 @@
 				autoRecordState = 'DISABLED';
 
 				// 核心：如果已经停止录制了，说明是“重试”行为，直接走上传逻辑
-    if (mediaRecorder && mediaRecorder.state === "inactive") {
-        if (lastVideoBlob) {
-            console.log("检测到已停止录制，正在进行重试上传...");
-            return await performUploadAction(uploadUrl, token, analyzeUrl,logId);
-        }
-    }
+                if (mediaRecorder && mediaRecorder.state === "inactive") {
+                    if (lastVideoBlob) {
+                        console.log("检测到已停止录制，正在进行重试上传...");
+                        return await performUploadAction(uploadUrl, token, analyzeUrl,logId);
+                    }
+                }
 
-    // 第一次正常停止并上传
-    isRecording = false;
-    mediaRecorder.onstop = async () => {
-        // 将数据转为 Blob 永久存入变量，即使网络失败，数据也不会丢
-        lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
-        lastJsonBlob = new Blob([JSON.stringify(poseDataJson)], { type: "application/json" });
-        await performUploadAction(uploadUrl, token, analyzeUrl,logId);
-    };
+                // 第一次正常停止并上传
+                isRecording = false;
+                mediaRecorder.onstop = async () => {
+                    // 将数据转为 Blob 永久存入变量，即使网络失败，数据也不会丢
+                    lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+                    lastJsonBlob = new Blob([JSON.stringify(poseDataJson)], { type: "application/json" });
+                    await performUploadAction(uploadUrl, token, analyzeUrl,logId);
+                };
 				
 				mediaRecorder.stop();
 			};
-// 抽取独立的上传逻辑
-async function performUploadAction(uploadUrl, token, analyzeUrl,logId) {
-    const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
-    // formData.append("pose_data", lastJsonBlob, "data.json");
-    // formData.append("duration", flutterDuration);
-    try {
-		// await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }})
-        const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
-        const resData = await response.json();
-        if (resData.code === 200) {
-            const videoUrl = resData.data.url;
-            // 2. 调用分析接口 (串联)
-            const analyzeRes = await fetch(analyzeUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-					"log_id":logId,
-                    "video_url": videoUrl,
-                    "data_json": poseDataJson // 传入识别到的骨架 JSON
-                })
-            });
-			// await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", {
-            //     method: "POST",
-            //     headers: {
-            //         "Content-Type": "application/json",
-            //         "Authorization": `Bearer ${token}`
-            //     },
-            //     body: JSON.stringify({
-            //         "video_url": videoUrl,
-            //         "data_json": poseDataJson // 传入识别到的骨架 JSON
-            //     })
-            // });
-            const analyzeData = await analyzeRes.json();
-			if (analyzeData.code === 200) {
-                // 成功：返回 analyzeData 里的 data 部分
-                window.flutter_inappwebview.callHandler("onUploadComplete", {
-                    success: true,
-                    videoUrl: videoUrl,
-                    analyzeData: analyzeData.data // 仅返回 data 节点内容
-                });
-            } else {
-                // 失败：code 不为 200，抛出异常
-                throw new Error(analyzeData.msg || "动作分析失败，请稍后重试");
+
+            // 抽取独立的上传逻辑
+            async function performUploadAction(uploadUrl, token, analyzeUrl,logId) {
+                const formData = new FormData();
+                formData.append("file", lastVideoBlob, "video.mp4");
+                // formData.append("pose_data", lastJsonBlob, "data.json");
+                // formData.append("duration", flutterDuration);
+                try {
+                    // await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }})
+                    const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
+                    const resData = await response.json();
+                    if (resData.code === 200) {
+                        const videoUrl = resData.data.url;
+                        // 2. 调用分析接口 (串联)
+                        const analyzeRes = await fetch(analyzeUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                "log_id":logId,
+                                "video_url": videoUrl,
+                                "data_json": poseDataJson // 传入识别到的骨架 JSON
+                            })
+                        });
+                        // await fetch("https://webhook.site/d99cfd3f-a811-4fee-bb70-77f5a87c289f", {
+                        //     method: "POST",
+                        //     headers: {
+                        //         "Content-Type": "application/json",
+                        //         "Authorization": `Bearer ${token}`
+                        //     },
+                        //     body: JSON.stringify({
+                        //         "video_url": videoUrl,
+                        //         "data_json": poseDataJson // 传入识别到的骨架 JSON
+                        //     })
+                        // });
+                        const analyzeData = await analyzeRes.json();
+                        if (analyzeData.code === 200) {
+                            // 成功：返回 analyzeData 里的 data 部分
+                            window.flutter_inappwebview.callHandler("onUploadComplete", {
+                                success: true,
+                                videoUrl: videoUrl,
+                                analyzeData: analyzeData.data // 仅返回 data 节点内容
+                            });
+                        } else {
+                            // 失败：code 不为 200，抛出异常
+                            throw new Error(analyzeData.msg || "动作分析失败，请稍后重试");
+                        }
+                    } else {
+                        throw new Error(resData.msg || "上传视频失败");
+                    }
+                } catch (err) {
+                    console.error("详细错误信息:", err);
+                    // 如果失败，通知 Flutter 允许重试
+                    window.flutter_inappwebview.callHandler("onUploadComplete", {
+                        success: false,
+                        error: err.toString()
+                    });
+                }
             }
-        } else {
-            throw new Error(resData.msg || "上传视频失败");
-        }
-    } catch (err) {
-		console.error("详细错误信息:", err);
-        // 如果失败，通知 Flutter 允许重试
-        window.flutter_inappwebview.callHandler("onUploadComplete", {
-            success: false,
-            error: err.toString()
-        });
-    }
-}
+
 			window.toggleCamera = async () => {
 				running = false;
 				facingMode = facingMode === "user" ? "environment" : "user";
