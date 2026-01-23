@@ -498,13 +498,47 @@
 			}
 
 			/* ================= 5. 工具函数 ================= */
+            
+            // 新增：计算 object-fit: cover 下的可见区域 (Canvas 坐标系)
+            function getVisibleRect() {
+                const videoRatio = canvas.width / canvas.height;
+                const screenRatio = window.innerWidth / window.innerHeight;
+                
+                let visibleW, visibleH, visibleX, visibleY;
+
+                if (screenRatio > videoRatio) {
+                    // 屏幕更宽，视频上下被裁剪
+                    visibleW = canvas.width;
+                    visibleH = canvas.width / screenRatio;
+                    visibleX = 0;
+                    visibleY = (canvas.height - visibleH) / 2;
+                } else {
+                    // 屏幕更窄，视频左右被裁剪
+                    visibleW = canvas.height * screenRatio;
+                    visibleH = canvas.height;
+                    visibleX = (canvas.width - visibleW) / 2;
+                    visibleY = 0;
+                }
+                
+                return { x: visibleX, y: visibleY, w: visibleW, h: visibleH };
+            }
+
+            // 新增：获取安全区域的实际 Canvas 坐标
+            function getSafeZoneRect() {
+                const visible = getVisibleRect();
+                return {
+                    x: visible.x + visible.w * SAFE_ZONE.x,
+                    y: visible.y + visible.h * SAFE_ZONE.y,
+                    w: visible.w * SAFE_ZONE.w,
+                    h: visible.h * SAFE_ZONE.h
+                };
+            }
+
             // 新增：绘制安全红框 (带水波纹效果)
             function drawSafeZone(ts) {
-                // 计算 Canvas 上的实际坐标
-                const x = canvas.width * SAFE_ZONE.x;
-                const y = canvas.height * SAFE_ZONE.y;
-                const w = canvas.width * SAFE_ZONE.w;
-                const h = canvas.height * SAFE_ZONE.h;
+                // 获取基于可见区域计算的红框坐标
+                const rect = getSafeZoneRect();
+                const { x, y, w, h } = rect;
 
                 ctx.save();
 
@@ -585,21 +619,15 @@
                 }
 
                 // 2. 检查是否在红框内 (Boundary)
-                // lm[i].x, lm[i].y 是 0~1 的归一化坐标
-                // SAFE_ZONE: x, y, w, h
-                const xMin = SAFE_ZONE.x;
-                const xMax = SAFE_ZONE.x + SAFE_ZONE.w;
-                const yMin = SAFE_ZONE.y;
-                const yMax = SAFE_ZONE.y + SAFE_ZONE.h;
-
+                // 使用基于可见区域的红框坐标 (Canvas 像素坐标)
+                const rect = getSafeZoneRect();
+                
                 for (let i of KEY_LANDMARKS) {
-                    const p = lm[i];
-                    // 注意：如果是前置摄像头(mirror)，x 坐标可能需要反转判断？
-                    // MediaPipe 输出的 landmarks 坐标已经是归一化后的，通常 x 是从左到右 0->1
-                    // 我们的 toCanvas 做了翻转处理，但这里是直接判断原始数据
-                    // 原始数据：左上角 (0,0)
+                    // 将归一化坐标转换为 Canvas 像素坐标 (包含镜像处理)
+                    const p = toCanvas(lm[i]);
                     
-                    if (p.x < xMin || p.x > xMax || p.y < yMin || p.y > yMax) {
+                    if (p.x < rect.x || p.x > rect.x + rect.w || 
+                        p.y < rect.y || p.y > rect.y + rect.h) {
                         return { inFrame: false, msg: "请移动到红框内" };
                     }
                 }
