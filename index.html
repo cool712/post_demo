@@ -561,24 +561,33 @@
                 gradient.addColorStop(0.66, "#A18CD1"); // 紫色
                 gradient.addColorStop(1, "#FBC2EB");    // 粉色
 
-                // 2. 绘制主体框
+                // 2. 绘制主体框 (改为填充外部区域)
+                ctx.save();
                 ctx.beginPath();
+                // 外框 (整个画布)
+                ctx.rect(0, 0, canvas.width, canvas.height);
+                // 内框 (安全区域) - 挖空
+                ctx.rect(x, y, w, h);
+
+                // 使用 evenodd 填充规则，使得只有"外框"和"内框"之间的区域被填充
+                ctx.fillStyle = gradient;
+                // 调整透明度，让它看起来像光影充满外部
+                ctx.globalAlpha = 0.3; 
                 
+                // 外发光效果 (向内扩散)
+                // 使用青色/紫色光晕
+                ctx.shadowColor = "rgba(0, 242, 254, 0.8)";
+                ctx.shadowBlur = 50; 
+                
+                ctx.fill("evenodd");
+                ctx.restore();
+
+                // 3. 绘制极细的内边界线 (增加清晰度)
+                ctx.beginPath();
                 ctx.strokeStyle = gradient;
-                // 若有若无的效果：极细的线，配合强光晕
-                ctx.lineWidth = 3; 
-                ctx.setLineDash([]); // 实线
-                ctx.globalAlpha = 0.8; // 稍微降低不透明度
-                
-                // 外发光效果 (向外扩散)
-                // 使用青色/紫色光晕，增加模糊半径，降低透明度，营造氛围感
-                ctx.shadowColor = "rgba(0, 242, 254, 0.6)";
-                ctx.shadowBlur = 40; 
-                
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.8;
                 ctx.strokeRect(x, y, w, h);
-                
-                // 恢复状态
-                ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1.0;
                 
                 // 绘制红框顶部的提示文字 (标题)
