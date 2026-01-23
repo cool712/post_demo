@@ -574,24 +574,20 @@
                 ctx.arcTo(x, y, x + w, y, cornerRadius);
                 ctx.closePath();
 
-                // 使用 stroke 描边，配合强光晕
+                // 使用 stroke 描边，配合柔和光晕
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 12; // 稍粗的边框，但不至于太夸张
-                ctx.lineCap = "round"; // 圆头端点
+                ctx.lineWidth = 4; // 变细，使其更精致
+                ctx.lineCap = "round"; 
                 
                 // 外发光效果 (向外扩散)
-                ctx.shadowColor = "rgba(0, 242, 254, 1.0)"; 
-                ctx.shadowBlur = 50; 
+                // 降低不透明度，使光晕更通透，与背景融合
+                ctx.shadowColor = "rgba(0, 242, 254, 0.6)"; 
+                ctx.shadowBlur = 40; 
                 
                 // 绘制
                 ctx.stroke();
                 
-                // 再叠加一层细的高亮线，增加层次感
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-                ctx.shadowBlur = 10;
-                ctx.stroke();
-
+                // 移除之前的二次叠加描边，保持简洁
                 ctx.restore();
 
                 // 3. 绘制检测框顶部的提示文字 (标题)
