@@ -561,32 +561,37 @@
                 gradient.addColorStop(0.66, "#A18CD1"); // 紫色
                 gradient.addColorStop(1, "#FBC2EB");    // 粉色
 
-                // 2. 绘制主体框 (改为填充外部区域)
+                // 2. 绘制主体框 (改为仅绘制边框，不填充外部)
                 ctx.save();
                 ctx.beginPath();
-                // 外框 (整个画布)
-                ctx.rect(0, 0, canvas.width, canvas.height);
                 
-                // 内框 (安全区域) - 挖空 (带圆角)
+                // 内框 (安全区域) - 仅绘制路径
                 const cornerRadius = 40; // 圆角半径
-                ctx.moveTo(x + r, y);
-                ctx.arcTo(x + w, y, x + w, y + h, r);
-                ctx.arcTo(x + w, y + h, x, y + h, r);
-                ctx.arcTo(x, y + h, x, y, r);
-                ctx.arcTo(x, y, x + w, y, r);
+                ctx.moveTo(x + cornerRadius, y);
+                ctx.arcTo(x + w, y, x + w, y + h, cornerRadius);
+                ctx.arcTo(x + w, y + h, x, y + h, cornerRadius);
+                ctx.arcTo(x, y + h, x, y, cornerRadius);
+                ctx.arcTo(x, y, x + w, y, cornerRadius);
                 ctx.closePath();
 
-                // 使用 evenodd 填充规则，使得只有"外框"和"内框"之间的区域被填充
-                ctx.fillStyle = gradient;
-                // 调整透明度，让它看起来像光影充满外部
-                ctx.globalAlpha = 0.3; 
+                // 使用 stroke 描边，配合强光晕
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 12; // 稍粗的边框，但不至于太夸张
+                ctx.lineCap = "round"; // 圆头端点
                 
-                // 外发光效果 (向内扩散)
-                // 使用青色/紫色光晕，增加光晕强度，使其成为主要边界视觉
+                // 外发光效果 (向外扩散)
                 ctx.shadowColor = "rgba(0, 242, 254, 1.0)"; 
-                ctx.shadowBlur = 60; 
+                ctx.shadowBlur = 50; 
                 
-                ctx.fill("evenodd");
+                // 绘制
+                ctx.stroke();
+                
+                // 再叠加一层细的高亮线，增加层次感
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+
                 ctx.restore();
 
                 // 3. 绘制检测框顶部的提示文字 (标题)
