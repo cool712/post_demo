@@ -574,24 +574,31 @@
                 ctx.arcTo(x, y, x + w, y, cornerRadius);
                 ctx.closePath();
 
-                // 使用纯光晕扩散效果 (无实线边框)
-                // 宽度设为剩余空间的两倍 (覆盖 margin 区域并向内延伸)
-                // 计算边距 (假设 x 是边距)
-                const margin = x; 
-                // 线宽设为边距的 2 倍，使其中心对齐边界，从而填满边距并向内延伸等宽距离
-                const haloWidth = Math.max(margin * 2, 40); // 至少 40px 以保证效果
-                
+                // 使用反向填充规则，仅填充剩余空间 (Margin区域)
                 ctx.save();
-                ctx.strokeStyle = gradient;
-                ctx.lineWidth = haloWidth; 
-                ctx.lineJoin = "round"; // 圆角连接
-                // 强模糊，实现"向外向里"的柔和扩散
-                ctx.filter = "blur(" + (haloWidth / 2) + "px)"; 
-                ctx.globalAlpha = 0.6; // 适度透明
-                ctx.stroke();
-                ctx.restore();
+                ctx.beginPath();
+                // 外框 (整个画布)
+                ctx.rect(0, 0, canvas.width, canvas.height);
+                // 内框 (检测区域) - 逆时针绘制以实现挖空
+                ctx.moveTo(x + cornerRadius, y);
+                ctx.arcTo(x + w, y, x + w, y + h, cornerRadius);
+                ctx.arcTo(x + w, y + h, x, y + h, cornerRadius);
+                ctx.arcTo(x, y + h, x, y, cornerRadius);
+                ctx.arcTo(x, y, x + w, y, cornerRadius);
+                ctx.closePath();
 
-                // 不再绘制任何核心实线，完全依靠光晕勾勒边界
+                // 填充样式
+                ctx.fillStyle = gradient;
+                // 使用较低透明度，营造光晕感
+                ctx.globalAlpha = 0.5; 
+                // 添加边缘模糊，使边界柔和
+                ctx.shadowColor = "rgba(0, 242, 254, 0.8)";
+                ctx.shadowBlur = 40; 
+                
+                // 使用 evenodd 填充规则：只有外框和内框之间的区域(剩余空间)会被填充
+                ctx.fill("evenodd");
+                
+                ctx.restore();
                 
                 ctx.restore();
 
