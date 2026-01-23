@@ -574,32 +574,24 @@
                 ctx.arcTo(x, y, x + w, y, cornerRadius);
                 ctx.closePath();
 
-                // 使用多层模糊滤镜模拟纯光晕效果 (Apple AI 风格 - 更细致)
-                // 第一层：较窄的背景漫射光
+                // 使用纯光晕扩散效果 (无实线边框)
+                // 宽度设为剩余空间的两倍 (覆盖 margin 区域并向内延伸)
+                // 计算边距 (假设 x 是边距)
+                const margin = x; 
+                // 线宽设为边距的 2 倍，使其中心对齐边界，从而填满边距并向内延伸等宽距离
+                const haloWidth = Math.max(margin * 2, 40); // 至少 40px 以保证效果
+                
                 ctx.save();
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 15; // 变细
-                ctx.filter = "blur(10px)"; // 减小模糊
-                ctx.globalAlpha = 0.4;
+                ctx.lineWidth = haloWidth; 
+                ctx.lineJoin = "round"; // 圆角连接
+                // 强模糊，实现"向外向里"的柔和扩散
+                ctx.filter = "blur(" + (haloWidth / 2) + "px)"; 
+                ctx.globalAlpha = 0.6; // 适度透明
                 ctx.stroke();
                 ctx.restore();
 
-                // 第二层：核心光晕 (更聚焦)
-                ctx.save();
-                ctx.strokeStyle = gradient;
-                ctx.lineWidth = 6; // 核心更细
-                ctx.filter = "blur(4px)"; // 减小模糊
-                ctx.globalAlpha = 0.9; // 提高不透明度，增加亮度
-                ctx.stroke();
-                ctx.restore();
-                
-                // 第三层：中心高亮线 (模拟灯管中心，不模糊)
-                ctx.save();
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; // 白色高亮
-                ctx.lineWidth = 2;
-                ctx.globalAlpha = 0.6;
-                ctx.stroke();
-                ctx.restore();
+                // 不再绘制任何核心实线，完全依靠光晕勾勒边界
                 
                 ctx.restore();
 
