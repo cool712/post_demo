@@ -575,22 +575,14 @@
                 ctx.globalAlpha = 0.3; 
                 
                 // 外发光效果 (向内扩散)
-                // 使用青色/紫色光晕
-                ctx.shadowColor = "rgba(0, 242, 254, 0.8)";
-                ctx.shadowBlur = 50; 
+                // 使用青色/紫色光晕，增加光晕强度，使其成为主要边界视觉
+                ctx.shadowColor = "rgba(0, 242, 254, 1.0)"; 
+                ctx.shadowBlur = 60; 
                 
                 ctx.fill("evenodd");
                 ctx.restore();
 
-                // 3. 绘制极细的内边界线 (增加清晰度)
-                ctx.beginPath();
-                ctx.strokeStyle = gradient;
-                ctx.lineWidth = 2;
-                ctx.globalAlpha = 0.8;
-                ctx.strokeRect(x, y, w, h);
-                ctx.globalAlpha = 1.0;
-                
-                // 绘制红框顶部的提示文字 (标题)
+                // 3. 绘制检测框顶部的提示文字 (标题)
                 ctx.save(); // 保存当前状态以便旋转文字
                 ctx.font = "bold 20px sans-serif";
                 // 文字颜色也改为亮青色
@@ -649,9 +641,9 @@
                     const p = toCanvas(lm[i]);
                     
                     if (p.x < rect.x || p.x > rect.x + rect.w || 
-                        p.y < rect.y || p.y > rect.y + rect.h) {
-                        return { inFrame: false, msg: "请移动到检测框内" };
-                    }
+                    p.y < rect.y || p.y > rect.y + rect.h) {
+                    return { inFrame: false, msg: "请移动到检测区域内" };
+                }
                 }
 
                 return { inFrame: true, msg: "位置正确" };
