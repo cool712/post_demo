@@ -582,25 +582,6 @@
                 ctx.fill("evenodd");
                 ctx.restore();
 
-                // 2.1 绘制内向渐变 (使边界过渡更自然)
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(x, y, w, h);
-                ctx.clip(); // 限制在检测区域内部
-
-                ctx.beginPath();
-                ctx.rect(x, y, w, h);
-                // 使用相同的渐变色，保持风格一致
-                ctx.strokeStyle = gradient; 
-                // 边框宽度的一半会显示在内部 (如设40，则20px向内)
-                ctx.lineWidth = 40; 
-                // 较低的透明度，避免遮挡太多，只需营造氛围
-                ctx.globalAlpha = 0.2; 
-                ctx.shadowColor = "rgba(0, 242, 254, 0.8)";
-                ctx.shadowBlur = 30; // 模糊边缘
-                ctx.stroke();
-                ctx.restore();
-
                 // 3. 绘制检测框顶部的提示文字 (标题)
                 ctx.save(); // 保存当前状态以便旋转文字
                 ctx.font = "bold 20px sans-serif";
