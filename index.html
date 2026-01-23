@@ -563,11 +563,25 @@
 
                 // 2. 绘制主体红框
                 ctx.beginPath();
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+                
+                // 渐变色边框 (左上角到右下角)
+                const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
+                gradient.addColorStop(0, "#ff0000");   // 纯红
+                gradient.addColorStop(0.5, "#ff4d4d"); // 稍亮的红
+                gradient.addColorStop(1, "#ff0000");   // 纯红
+
+                ctx.strokeStyle = gradient;
                 ctx.lineWidth = 6; // 加粗边框
                 ctx.setLineDash([20, 10]); // 更明显的虚线
                 
+                // 外发光效果 (向外扩散)
+                ctx.shadowColor = "rgba(255, 0, 0, 0.6)";
+                ctx.shadowBlur = 20; 
+                
                 ctx.strokeRect(x, y, w, h);
+                
+                // 清除阴影，防止影响文字
+                ctx.shadowBlur = 0;
                 
                 // 绘制红框顶部的提示文字 (标题)
                 ctx.save(); // 保存当前状态以便旋转文字
