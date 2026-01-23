@@ -271,13 +271,9 @@
 
                     // 绘制红框 (仅在未开始录制时)
                     if (!isRecording) {
-                        // 动态调整 SAFE_ZONE 比例 (保持逻辑一致)
-                        if (canvas.width > canvas.height) {
-                            SAFE_ZONE = { x: 0.35, y: 0.1, w: 0.3, h: 0.8 };
-                        } else {
-                            SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 };
-                        }
-                        drawSafeZone();
+                        // 95% 屏幕占比
+                        SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
+                        drawSafeZone(ts);
                     }
 					return;
 				}
@@ -293,16 +289,9 @@
 
                 // 0. 绘制红框 (仅在未开始录制时)
                 if (!isRecording) {
-                    // 动态调整 SAFE_ZONE 比例
-                    if (canvas.width > canvas.height) {
-                        // 横屏模式：使用更窄的中间区域，确保是"站立"的长方形
-                        // 目标长宽比大约 1:2.5
-                        SAFE_ZONE = { x: 0.35, y: 0.1, w: 0.3, h: 0.8 };
-                    } else {
-                        // 竖屏模式：默认
-                        SAFE_ZONE = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 };
-                    }
-                    drawSafeZone();
+                    // 95% 屏幕占比
+                    SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
+                    drawSafeZone(ts);
                 }
 
 				// --- 第三部分：AI 检测与骨架绘制 (只有 AI 好了才会跑这里) ---
@@ -509,18 +498,40 @@
 			}
 
 			/* ================= 5. 工具函数 ================= */
-            // 新增：绘制安全红框
-            function drawSafeZone() {
-                ctx.save();
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.6)";
-                ctx.lineWidth = 6; // 加粗边框
-                ctx.setLineDash([20, 10]); // 更明显的虚线
-                
+            // 新增：绘制安全红框 (带水波纹效果)
+            function drawSafeZone(ts) {
                 // 计算 Canvas 上的实际坐标
                 const x = canvas.width * SAFE_ZONE.x;
                 const y = canvas.height * SAFE_ZONE.y;
                 const w = canvas.width * SAFE_ZONE.w;
                 const h = canvas.height * SAFE_ZONE.h;
+
+                ctx.save();
+
+                // 1. 绘制水波纹效果 (仅当有时间戳时)
+                if (ts) {
+                    const waveCount = 3;
+                    const maxOffset = 60; 
+                    const duration = 2000;
+                    
+                    for (let i = 0; i < waveCount; i++) {
+                        const progress = ((ts + i * (duration / waveCount)) % duration) / duration;
+                        const alpha = 1 - progress; 
+                        const offset = progress * maxOffset; 
+                        
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(255, 0, 0, ${alpha * 0.6})`;
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([]); 
+                        ctx.strokeRect(x - offset, y - offset, w + offset * 2, h + offset * 2);
+                    }
+                }
+
+                // 2. 绘制主体红框
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+                ctx.lineWidth = 6; // 加粗边框
+                ctx.setLineDash([20, 10]); // 更明显的虚线
                 
                 ctx.strokeRect(x, y, w, h);
                 
