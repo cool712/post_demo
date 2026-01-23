@@ -68,7 +68,7 @@
 
 	<body>
 		<div id="tip">Initializing...</div>
-        <div id="status-toast">请站在红框内</div>
+        <div id="status-toast">请站在检测框内</div>
 		<video id="video" autoplay playsinline muted></video>
 		<canvas id="canvas"></canvas>
 
@@ -314,7 +314,7 @@
 						} else {
                             // 未检测到人
                             if (!isRecording && autoRecordState !== 'DISABLED') {
-                                showToast("请站在红框内");
+                                showToast("请站在检测框内");
                                 // 如果正在倒计时，没人了，需要重置
                                 if (autoRecordState === 'COUNTDOWN') {
                                     autoRecordState = 'IDLE';
@@ -350,7 +350,7 @@
                     let isReady = false;
 
                     if (!inFrame) {
-                        statusText = frameMsg; // "请全身入镜" 或 "请站在红框内"
+                        statusText = frameMsg; // "请全身入镜" 或 "请站在检测框内"
                     } else if (!isStatic) {
                         statusText = "请保持静止";
                     } else if (!isPoseCorrect) {
@@ -542,6 +542,25 @@
 
                 ctx.save();
 
+                // 定义 Apple AI 风格渐变色 (青 -> 蓝 -> 紫 -> 粉)
+                // 动态旋转渐变角度
+                const angle = (ts / 2000) % (Math.PI * 2); // 2秒转一圈
+                const cx = x + w / 2;
+                const cy = y + h / 2;
+                // 计算渐变向量 (覆盖对角线长度)
+                const r = Math.sqrt(w * w + h * h) / 1.5; 
+                
+                const x1 = cx + Math.cos(angle) * r;
+                const y1 = cy + Math.sin(angle) * r;
+                const x2 = cx + Math.cos(angle + Math.PI) * r;
+                const y2 = cy + Math.sin(angle + Math.PI) * r;
+
+                const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                gradient.addColorStop(0, "#4FACFE");   // 浅蓝/青
+                gradient.addColorStop(0.33, "#00F2FE"); // 青色
+                gradient.addColorStop(0.66, "#A18CD1"); // 紫色
+                gradient.addColorStop(1, "#FBC2EB");    // 粉色
+
                 // 1. 绘制水波纹效果 (仅当有时间戳时)
                 if (ts) {
                     const waveCount = 3;
@@ -554,29 +573,25 @@
                         const offset = progress * maxOffset; 
                         
                         ctx.beginPath();
-                        ctx.strokeStyle = `rgba(255, 0, 0, ${alpha * 0.6})`;
+                        // 波纹使用较浅的青紫色
+                        ctx.strokeStyle = `rgba(0, 242, 254, ${alpha * 0.5})`;
                         ctx.lineWidth = 4;
                         ctx.setLineDash([]); 
                         ctx.strokeRect(x - offset, y - offset, w + offset * 2, h + offset * 2);
                     }
                 }
 
-                // 2. 绘制主体红框
+                // 2. 绘制主体框
                 ctx.beginPath();
                 
-                // 渐变色边框 (左上角到右下角)
-                const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
-                gradient.addColorStop(0, "#ff0000");   // 纯红
-                gradient.addColorStop(0.5, "#ff4d4d"); // 稍亮的红
-                gradient.addColorStop(1, "#ff0000");   // 纯红
-
                 ctx.strokeStyle = gradient;
                 ctx.lineWidth = 6; // 加粗边框
                 ctx.setLineDash([20, 10]); // 更明显的虚线
                 
                 // 外发光效果 (向外扩散)
-                ctx.shadowColor = "rgba(255, 0, 0, 0.6)";
-                ctx.shadowBlur = 20; 
+                // 使用青色/紫色光晕
+                ctx.shadowColor = "rgba(0, 242, 254, 0.8)";
+                ctx.shadowBlur = 25; 
                 
                 ctx.strokeRect(x, y, w, h);
                 
@@ -586,7 +601,8 @@
                 // 绘制红框顶部的提示文字 (标题)
                 ctx.save(); // 保存当前状态以便旋转文字
                 ctx.font = "bold 20px sans-serif";
-                ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+                // 文字颜色也改为亮青色
+                ctx.fillStyle = "#00F2FE"; 
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
 
@@ -642,7 +658,7 @@
                     
                     if (p.x < rect.x || p.x > rect.x + rect.w || 
                         p.y < rect.y || p.y > rect.y + rect.h) {
-                        return { inFrame: false, msg: "请移动到红框内" };
+                        return { inFrame: false, msg: "请移动到检测框内" };
                     }
                 }
 
