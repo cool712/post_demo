@@ -589,11 +589,10 @@
 
                 // 填充样式
                 ctx.fillStyle = gradient;
-                // 使用极低透明度，使外围光晕更柔和，不抢视觉
-                ctx.globalAlpha = 0.2; 
-                // 添加边缘模糊，使边界柔和
-                ctx.shadowColor = "rgba(0, 242, 254, 0.6)";
-                ctx.shadowBlur = 40; 
+                // 使用较低透明度，使外围光晕更柔和，不抢视觉
+                ctx.globalAlpha = 0.3; 
+                // 移除边缘模糊，确保内部画面完全清晰
+                ctx.shadowBlur = 0; 
                 
                 // 使用 evenodd 填充规则：只有外框和内框之间的区域(剩余空间)会被填充
                 ctx.fill("evenodd");
