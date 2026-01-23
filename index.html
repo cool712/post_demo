@@ -565,18 +565,21 @@
                 ctx.beginPath();
                 
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 6; // 加粗边框
-                ctx.setLineDash([20, 10]); // 更明显的虚线
+                // 若有若无的效果：极细的线，配合强光晕
+                ctx.lineWidth = 3; 
+                ctx.setLineDash([]); // 实线
+                ctx.globalAlpha = 0.8; // 稍微降低不透明度
                 
                 // 外发光效果 (向外扩散)
-                // 使用青色/紫色光晕
-                ctx.shadowColor = "rgba(0, 242, 254, 0.8)";
-                ctx.shadowBlur = 25; 
+                // 使用青色/紫色光晕，增加模糊半径，降低透明度，营造氛围感
+                ctx.shadowColor = "rgba(0, 242, 254, 0.6)";
+                ctx.shadowBlur = 40; 
                 
                 ctx.strokeRect(x, y, w, h);
                 
-                // 清除阴影，防止影响文字
+                // 恢复状态
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1.0;
                 
                 // 绘制红框顶部的提示文字 (标题)
                 ctx.save(); // 保存当前状态以便旋转文字
