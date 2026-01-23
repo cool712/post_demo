@@ -566,8 +566,15 @@
                 ctx.beginPath();
                 // 外框 (整个画布)
                 ctx.rect(0, 0, canvas.width, canvas.height);
-                // 内框 (安全区域) - 挖空
-                ctx.rect(x, y, w, h);
+                
+                // 内框 (安全区域) - 挖空 (带圆角)
+                const r = 40; // 圆角半径
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r);
+                ctx.arcTo(x, y, x + w, y, r);
+                ctx.closePath();
 
                 // 使用 evenodd 填充规则，使得只有"外框"和"内框"之间的区域被填充
                 ctx.fillStyle = gradient;
