@@ -574,20 +574,27 @@
                 ctx.arcTo(x, y, x + w, y, cornerRadius);
                 ctx.closePath();
 
-                // 使用 stroke 描边，配合柔和光晕
+                // 使用多层模糊滤镜模拟纯光晕效果 (Apple AI 风格)
+                // 第一层：宽大的背景漫射光
+                ctx.save();
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 4; // 变细，使其更精致
-                ctx.lineCap = "round"; 
-                
-                // 外发光效果 (向外扩散)
-                // 降低不透明度，使光晕更通透，与背景融合
-                ctx.shadowColor = "rgba(0, 242, 254, 0.6)"; 
-                ctx.shadowBlur = 40; 
-                
-                // 绘制
+                ctx.lineWidth = 30; 
+                ctx.filter = "blur(20px)"; // 强模糊，使线条散开
+                ctx.globalAlpha = 0.5;
                 ctx.stroke();
+                ctx.restore();
+
+                // 第二层：核心光晕 (稍微聚焦一点，但仍然是模糊的)
+                ctx.save();
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 10;
+                ctx.filter = "blur(8px)"; 
+                ctx.globalAlpha = 0.8;
+                ctx.stroke();
+                ctx.restore();
                 
-                // 移除之前的二次叠加描边，保持简洁
+                // 不绘制任何实线边框，只保留光晕
+                
                 ctx.restore();
 
                 // 3. 绘制检测框顶部的提示文字 (标题)
