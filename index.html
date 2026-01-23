@@ -574,26 +574,32 @@
                 ctx.arcTo(x, y, x + w, y, cornerRadius);
                 ctx.closePath();
 
-                // 使用多层模糊滤镜模拟纯光晕效果 (Apple AI 风格)
-                // 第一层：宽大的背景漫射光
+                // 使用多层模糊滤镜模拟纯光晕效果 (Apple AI 风格 - 更细致)
+                // 第一层：较窄的背景漫射光
                 ctx.save();
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 30; 
-                ctx.filter = "blur(20px)"; // 强模糊，使线条散开
-                ctx.globalAlpha = 0.5;
+                ctx.lineWidth = 15; // 变细
+                ctx.filter = "blur(10px)"; // 减小模糊
+                ctx.globalAlpha = 0.4;
                 ctx.stroke();
                 ctx.restore();
 
-                // 第二层：核心光晕 (稍微聚焦一点，但仍然是模糊的)
+                // 第二层：核心光晕 (更聚焦)
                 ctx.save();
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 10;
-                ctx.filter = "blur(8px)"; 
-                ctx.globalAlpha = 0.8;
+                ctx.lineWidth = 6; // 核心更细
+                ctx.filter = "blur(4px)"; // 减小模糊
+                ctx.globalAlpha = 0.9; // 提高不透明度，增加亮度
                 ctx.stroke();
                 ctx.restore();
                 
-                // 不绘制任何实线边框，只保留光晕
+                // 第三层：中心高亮线 (模拟灯管中心，不模糊)
+                ctx.save();
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; // 白色高亮
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.6;
+                ctx.stroke();
+                ctx.restore();
                 
                 ctx.restore();
 
