@@ -67,8 +67,7 @@
 	</head>
 
 	<body>
-		<div id="tip">Initializing...</div>
-        <div id="status-toast">请站在检测框内</div>
+		<div id="status-toast">请站在检测框内</div>
 		<video id="video" autoplay playsinline muted></video>
 		<canvas id="canvas"></canvas>
 
@@ -88,7 +87,6 @@
 			const ctx = canvas.getContext("2d", {
 				alpha: true
 			});
-			const tip = document.getElementById("tip");
             const statusToast = document.getElementById("status-toast");
 
             function showToast(msg) {
@@ -225,7 +223,7 @@
 						};
 					});
 				} catch (err) {
-					tip.textContent = "Camera Error: " + err.message;
+					console.error("Camera Error: " + err.message);
 				}
 			}
 
@@ -234,7 +232,7 @@
 				// 将初始化逻辑完全移出当前调用栈，避免 main() 函数中的同步阻塞影响首帧渲染
 				setTimeout(async () => {
 					try {
-						tip.textContent = "AI loading...";
+						// tip.textContent = "AI loading...";
 
 						const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
 						poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
@@ -245,9 +243,9 @@
 							runningMode: "VIDEO",
 							numPoses: 1
 						});
-						tip.textContent = "AI Ready";
+						// tip.textContent = "AI Ready";
 					} catch (err) {
-						tip.textContent = "AI Load Failed";
+						console.error("AI Load Failed", err);
 					}
 				}, 1000); // 延迟 1 秒再开始加载 AI，确保摄像头画面已经跑起来了
 			}
@@ -264,7 +262,7 @@
                 // 让用户透过透明的 canvas 看到底层的 video 元素，避免主线程阻塞导致的画面卡顿
 				if (!poseLandmarker) {
 					// 可以在屏幕上提示用户正在加载 AI
-					tip.textContent = "Camera Ready | AI Loading...";
+					// tip.textContent = "Camera Ready | AI Loading...";
                     
                     // 清空 Canvas，露出底下的 Video
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -300,8 +298,8 @@
 					const fps = frameCount;
 					if (fps < 12 && dynamicScale > 0.3) dynamicScale -= 0.1;
 					else if (fps > 14 && dynamicScale < 1.0) dynamicScale += 0.1;
-					tip.textContent =
-						`Quality: ${Math.round(dynamicScale * 100)}% | FPS: ${fps} | Rec: ${isRecording ? 'ON' : 'OFF'}`;
+					// tip.textContent =
+					// 	`Quality: ${Math.round(dynamicScale * 100)}% | FPS: ${fps} | Rec: ${isRecording ? 'ON' : 'OFF'}`;
 					frameCount = 0;
 					lastFpsCheck = ts;
 				}
@@ -598,44 +596,6 @@
                 ctx.fill("evenodd");
                 
                 ctx.restore();
-                
-                ctx.restore();
-
-                // 3. 绘制检测框顶部的提示文字 (标题)
-                ctx.save(); // 保存当前状态以便旋转文字
-                ctx.font = "bold 20px sans-serif";
-                // 文字颜色也改为亮青色
-                ctx.fillStyle = "#00F2FE"; 
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-
-                // 计算文字位置并旋转
-                let textX = x + w / 2;
-                let textY = y - 15;
-                
-                // 根据设备旋转调整文字位置和角度
-                if (currentDeviceRotation === 90) {
-                    // 左横屏：文字应该在红框的"左侧" (视觉上的上方)
-                    // 坐标系顺时针旋转90度
-                    ctx.translate(x - 15, y + h / 2);
-                    ctx.rotate(Math.PI / 2);
-                    ctx.fillText("检测区域", 0, 0);
-                } else if (currentDeviceRotation === -90) {
-                    // 右横屏：文字应该在红框的"右侧" (视觉上的上方)
-                    ctx.translate(x + w + 15, y + h / 2);
-                    ctx.rotate(-Math.PI / 2);
-                    ctx.fillText("检测区域", 0, 0);
-                } else if (currentDeviceRotation === 180) {
-                    // 倒立
-                    ctx.translate(x + w / 2, y + h + 15);
-                    ctx.rotate(Math.PI);
-                    ctx.fillText("检测区域", 0, 0);
-                } else {
-                    // 正常竖屏
-                    ctx.fillText("检测区域", textX, textY);
-                }
-                
-                ctx.restore(); // 恢复文字旋转前的状态
                 
                 ctx.restore(); // 恢复 drawSafeZone 最开始的 save
             }
