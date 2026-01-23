@@ -568,7 +568,7 @@
                 ctx.rect(0, 0, canvas.width, canvas.height);
                 
                 // 内框 (安全区域) - 挖空 (带圆角)
-                const r = 40; // 圆角半径
+                const cornerRadius = 40; // 圆角半径
                 ctx.moveTo(x + r, y);
                 ctx.arcTo(x + w, y, x + w, y + h, r);
                 ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -863,28 +863,6 @@
                     window.flutter_inappwebview.callHandler("onUploadComplete", {
                         success: false,
                         error: err.toString()
-                    });
-                }
-            }
-
-			window.toggleCamera = async () => {
-				running = false;
-				facingMode = facingMode === "user" ? "environment" : "user";
-				await startCamera();
-				return facingMode;
-			};
-
-			/* ================= 启动 ================= */
-			async function main() {
-				await startCamera();
-				requestAnimationFrame(loop);
-				// Delay AI init slightly to ensure first frame renders
-				setTimeout(initAI, 100);
-			}
-			main();
-		</script>
-	</body>
-</html>                 error: err.toString()
                     });
                 }
             }
