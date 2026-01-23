@@ -561,26 +561,6 @@
                 gradient.addColorStop(0.66, "#A18CD1"); // 紫色
                 gradient.addColorStop(1, "#FBC2EB");    // 粉色
 
-                // 1. 绘制水波纹效果 (仅当有时间戳时)
-                if (ts) {
-                    const waveCount = 3;
-                    const maxOffset = 60; 
-                    const duration = 2000;
-                    
-                    for (let i = 0; i < waveCount; i++) {
-                        const progress = ((ts + i * (duration / waveCount)) % duration) / duration;
-                        const alpha = 1 - progress; 
-                        const offset = progress * maxOffset; 
-                        
-                        ctx.beginPath();
-                        // 波纹使用较浅的青紫色
-                        ctx.strokeStyle = `rgba(0, 242, 254, ${alpha * 0.5})`;
-                        ctx.lineWidth = 4;
-                        ctx.setLineDash([]); 
-                        ctx.strokeRect(x - offset, y - offset, w + offset * 2, h + offset * 2);
-                    }
-                }
-
                 // 2. 绘制主体框
                 ctx.beginPath();
                 
