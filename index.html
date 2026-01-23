@@ -741,6 +741,18 @@
 			
 			// 暂停拍摄
 			window.pauseRecord = function() {
+                // 如果当前处于准备(IDLE)或倒计时(COUNTDOWN)阶段，且并未正式录制
+                if (!isRecording && (autoRecordState === 'IDLE' || autoRecordState === 'COUNTDOWN')) {
+                    autoRecordState = 'DISABLED'; // 取消准备
+                    hideToast(); // 隐藏可能存在的倒计时或提示
+                    console.log("已取消准备/倒计时");
+                    // 同样可以通知 Flutter，虽然可能不需要
+                    if (window.flutter_inappwebview) {
+                         window.flutter_inappwebview.callHandler("onRecordPaused");
+                    }
+                    return;
+                }
+
                 if (!mediaRecorder) return;
                 if (mediaRecorder.state === "recording") {
                     mediaRecorder.pause(); // 暂停硬件录制
