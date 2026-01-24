@@ -139,15 +139,6 @@ function loop(ts) {
     if (!state.poseLandmarker) {
         state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
         
-        // Draw video even if AI is loading to prevent black screen
-        state.ctx.save();
-        if (state.facingMode === "user") {
-            state.ctx.translate(state.canvas.width, 0);
-            state.ctx.scale(-1, 1);
-        }
-        state.ctx.drawImage(state.video, 0, 0, state.canvas.width, state.canvas.height);
-        state.ctx.restore();
-
         if (!state.isRecording) {
             state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
             drawSafeZone(ts);
