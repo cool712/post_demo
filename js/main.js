@@ -109,6 +109,7 @@ function loop(ts) {
         if (!state.isRecording) {
             state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
             drawSafeZone(ts);
+            showDynamicIsland("AI资源加载中");
         }
         return;
     }
@@ -140,7 +141,11 @@ function loop(ts) {
             const result = state.poseLandmarker.detectForVideo(state.video, ts);
             if (result.landmarks && result.landmarks.length > 0) {
                 processAndDraw(result.landmarks[0]);
+                if (state.autoRecordState === 'DISABLED') {
+                    hideDynamicIsland();
+                }
             } else {
+                hideDynamicIsland();
                 if (!state.isRecording && state.autoRecordState !== 'DISABLED') {
                     showToast("请站在检测框内");
                     if (state.autoRecordState === 'COUNTDOWN') {
