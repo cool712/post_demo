@@ -460,8 +460,7 @@
                     if (!inFrame) {
                         statusText = frameMsg; // "请全身入镜" 或 "请站在检测框内"
                     } else if (!isStatic) {
-                        shouldShowDynamicIsland = true;
-                        dynamicIslandMsg = "保持不动";
+                        statusText = "请保持不动";
                     } else if (!isPoseCorrect) {
                         statusText = "请直立身体";
                     } else {
