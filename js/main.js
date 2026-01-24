@@ -333,7 +333,7 @@ function processAndDraw(lm) {
             hideDynamicIsland();
         }
 
-        if (!isReady && statusText) {
+        if (!isReady && statusText && !state.isRecording) {
             showToast(statusText);
         } else {
             hideToast();
