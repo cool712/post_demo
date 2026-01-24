@@ -182,19 +182,19 @@
             
             if (currentDeviceRotation === 90) {
                 // 左横屏 (Home键在右)，视觉顶部在屏幕左侧
-                // 此时使用中心(center)为变换原点
-                // 目标：垂直居中(50%)，水平靠左(margin)
-                dynamicIsland.style.left = `${margin}px`;
-                dynamicIsland.style.top = "50%";
-                // translate(-50%, -50%) 将中心对齐到 (margin, 50%)
-                // rotate(90deg) 绕中心旋转
-                dynamicIsland.style.transform = `translate(-50%, -50%) rotate(90deg) scale(${scale})`;
-            } else if (currentDeviceRotation === -90) {
-                // 右横屏 (Home键在左)，视觉顶部在屏幕右侧
+                // 物理屏幕上：视觉顶部对应 物理右侧 (Right Edge)
+                // 目标：垂直居中(50%)，水平靠右(margin)
                 dynamicIsland.style.right = `${margin}px`;
                 dynamicIsland.style.top = "50%";
                 // translate(50%, -50%) 将中心对齐到 (ScreenW-margin, 50%)
-                dynamicIsland.style.transform = `translate(50%, -50%) rotate(-90deg) scale(${scale})`;
+                dynamicIsland.style.transform = `translate(50%, -50%) rotate(90deg) scale(${scale})`;
+            } else if (currentDeviceRotation === -90) {
+                // 右横屏 (Home键在左)，视觉顶部在屏幕右侧
+                // 物理屏幕上：视觉顶部对应 物理左侧 (Left Edge)
+                dynamicIsland.style.left = `${margin}px`;
+                dynamicIsland.style.top = "50%";
+                // translate(-50%, -50%) 将中心对齐到 (margin, 50%)
+                dynamicIsland.style.transform = `translate(-50%, -50%) rotate(-90deg) scale(${scale})`;
             } else if (currentDeviceRotation === 180) {
                 // 倒立
                 dynamicIsland.style.bottom = `${margin}px`;
