@@ -51,7 +51,17 @@ export function updateRecordingCanvas() {
     const contentWidth = isRotated ? srcH : srcW;
     const contentHeight = isRotated ? srcW : srcH;
     // 计算缩放：取宽缩放和高缩放的较小值，以保证内容完全放入画布
-    const scale = Math.min(destW / contentWidth, destH / contentHeight);
+    let scale = Math.min(destW / contentWidth, destH / contentHeight);
+
+    // 特殊处理：竖屏录制过程中切换到横屏
+    // 此时 contentWidth(1280) > destW(720)，导致 scale 只有 0.56，画面非常小
+    // 为了提升体验，我们限制最小缩放比例，允许一定程度的裁剪（左右裁剪，上下留黑）
+    // 强制让旋转后的"高"（原宽 720）至少填满目标的"宽"（720）
+    if (isRotated && scale < 0.7) {
+        // 计算填满宽度的比例：destW / contentHeight (720 / 720 = 1)
+        const fitWidthScale = destW / contentHeight;
+        scale = Math.max(scale, fitWidthScale);
+    }
     
     recordingCtx.scale(scale, scale);
 
