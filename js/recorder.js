@@ -45,6 +45,16 @@ export function updateRecordingCanvas() {
     // 恢复变换逻辑
     recordingCtx.translate(destW / 2, destH / 2);
 
+    // 计算缩放比例，确保完整显示（Contain 模式）
+    const isRotated = Math.abs(currentDeviceRotation) === 90;
+    // 旋转后的内容尺寸
+    const contentWidth = isRotated ? srcH : srcW;
+    const contentHeight = isRotated ? srcW : srcH;
+    // 计算缩放：取宽缩放和高缩放的较小值，以保证内容完全放入画布
+    const scale = Math.min(destW / contentWidth, destH / contentHeight);
+    
+    recordingCtx.scale(scale, scale);
+
     if (currentDeviceRotation === 90) {
         // 手机左横屏 (Home键在右)，画面是横的
         // 录制画布是竖的。
