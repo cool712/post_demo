@@ -63,10 +63,50 @@
                 opacity: 0;
                 /* transform 由 JS 动态控制 */
             }
+
+            #dynamic-island-prompt {
+                position: absolute;
+                /* top/left/transform set by JS */
+                background: #000;
+                color: #fff;
+                padding: 12px 24px;
+                border-radius: 50px;
+                font-size: 20px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+                z-index: 100;
+                opacity: 0;
+                transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.3s, left 0.3s, right 0.3s, bottom 0.3s;
+                pointer-events: none;
+                white-space: nowrap;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            }
+            #dynamic-island-prompt.show {
+                opacity: 1;
+            }
+            #dynamic-island-icon {
+                width: 28px;
+                height: 28px;
+                background: #ffcc00;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #000;
+                font-weight: 900;
+                font-size: 18px;
+            }
 		</style>
 	</head>
 
 	<body>
+        <div id="dynamic-island-prompt">
+            <div id="dynamic-island-icon">!</div>
+            <span id="dynamic-island-text">请保持静止</span>
+        </div>
 		<div id="status-toast">请站在检测框内</div>
 		<video id="video" autoplay playsinline muted></video>
 		<canvas id="canvas"></canvas>
@@ -88,6 +128,8 @@
 				alpha: true
 			});
             const statusToast = document.getElementById("status-toast");
+            const dynamicIsland = document.getElementById("dynamic-island-prompt");
+            const dynamicIslandText = document.getElementById("dynamic-island-text");
 
             function showToast(msg) {
                 if (statusToast.textContent !== msg) {
@@ -104,6 +146,60 @@
                 if (statusToast.classList.contains("show")) {
                     statusToast.classList.remove("show");
                     statusToast.classList.add("hide");
+                }
+            }
+
+            function showDynamicIsland(msg) {
+                if (dynamicIslandText.textContent !== msg) {
+                    dynamicIslandText.textContent = msg;
+                }
+                if (!dynamicIsland.classList.contains("show")) {
+                    dynamicIsland.classList.add("show");
+                }
+                updateDynamicIslandRotation();
+            }
+
+            function hideDynamicIsland() {
+                if (dynamicIsland.classList.contains("show")) {
+                    dynamicIsland.classList.remove("show");
+                    // 即使隐藏也要更新位置，保证缩放动画在正确位置
+                    updateDynamicIslandRotation(); 
+                }
+            }
+
+            function updateDynamicIslandRotation() {
+                const scale = dynamicIsland.classList.contains("show") ? 1 : 0;
+                
+                // 重置定位样式
+                dynamicIsland.style.top = "";
+                dynamicIsland.style.left = "";
+                dynamicIsland.style.right = "";
+                dynamicIsland.style.bottom = "";
+                dynamicIsland.style.transform = "";
+
+                const margin = 30; // 距离屏幕边缘的距离
+                
+                if (currentDeviceRotation === 90) {
+                    // 左横屏 (Home键在右)，视觉顶部在屏幕左侧
+                    dynamicIsland.style.left = `${margin}px`;
+                    dynamicIsland.style.top = "50%";
+                    // 旋转90度，使得文字垂直向上（相对于屏幕） -> 也就是相对于用户水平
+                    dynamicIsland.style.transform = `translate(0, -50%) rotate(90deg) scale(${scale})`;
+                } else if (currentDeviceRotation === -90) {
+                    // 右横屏 (Home键在左)，视觉顶部在屏幕右侧
+                    dynamicIsland.style.right = `${margin}px`;
+                    dynamicIsland.style.top = "50%";
+                    dynamicIsland.style.transform = `translate(0, -50%) rotate(-90deg) scale(${scale})`;
+                } else if (currentDeviceRotation === 180) {
+                    // 倒立
+                    dynamicIsland.style.bottom = `${margin}px`;
+                    dynamicIsland.style.left = "50%";
+                    dynamicIsland.style.transform = `translate(-50%, 0) rotate(180deg) scale(${scale})`;
+                } else {
+                    // 竖屏
+                    dynamicIsland.style.top = `${margin}px`;
+                    dynamicIsland.style.left = "50%";
+                    dynamicIsland.style.transform = `translate(-50%, 0) scale(${scale})`;
                 }
             }
 
@@ -191,6 +287,8 @@
                         currentDeviceRotation = 0;   // 正立
                     }
                 }
+                updateToastRotation();
+                updateDynamicIslandRotation();
             });
 
 			/* ================= 1. 摄像头初始化 ================= */
@@ -346,11 +444,13 @@
                     // 综合判断状态
                     let statusText = "";
                     let isReady = false;
+                    let showDynamicPrompt = false;
 
                     if (!inFrame) {
                         statusText = frameMsg; // "请全身入镜" 或 "请站在检测框内"
                     } else if (!isStatic) {
-                        statusText = "请保持静止";
+                        // statusText = "请保持静止"; // 改为灵动岛提示
+                        showDynamicPrompt = true;
                     } else if (!isPoseCorrect) {
                         statusText = "请直立身体";
                     } else {
@@ -361,8 +461,15 @@
                     // 保存当前帧作为下一帧的对比
                     lastFrameLandmarks = lm;
 
+                    // 控制 灵动岛提示 显示/隐藏
+                    if (showDynamicPrompt) {
+                        showDynamicIsland("请保持静止");
+                    } else {
+                        hideDynamicIsland();
+                    }
+
                     // 控制 Toast 显示/隐藏
-                    if (!isReady) {
+                    if (!isReady && statusText) {
                         showToast(statusText);
                     } else {
                         hideToast();
