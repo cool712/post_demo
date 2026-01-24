@@ -36,9 +36,10 @@ export function updateRecordingCanvas() {
 
     recordingCtx.save();
     
-    // 每一帧都重置背景，防止重影
-    recordingCtx.fillStyle = '#000000';
-    recordingCtx.fillRect(0, 0, destW, destH);
+    // 默认清空
+    // recordingCtx.clearRect(0, 0, destW, destH);
+    // 直接绘制会覆盖，如果是旋转，需要填充背景防止黑边？
+    // 这里因为是全屏旋转，应该会覆盖全。
     
     recordingCtx.translate(destW / 2, destH / 2);
 
@@ -109,9 +110,6 @@ export function startRecord() {
     state.autoRecordState = 'IDLE'; 
     state.countdownStartTime = 0;
     hideToast();
-    state.ignoreUnstable = false;
-    state.isUnstableCheckActive = false;
-    state.unstableStartTime = 0;
 }
 
 export function pauseRecord() {
@@ -120,9 +118,6 @@ export function pauseRecord() {
         state.autoRecordState = 'DISABLED'; 
         hideToast();
         hideDynamicIsland();
-        state.ignoreUnstable = false;
-        state.isUnstableCheckActive = false;
-        state.unstableStartTime = 0;
         console.log("已取消准备/倒计时");
         if (window.flutter_inappwebview) {
                 window.flutter_inappwebview.callHandler("onRecordPaused");
