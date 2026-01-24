@@ -4,7 +4,7 @@ import {
 } from "/mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
-import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation } from './ui.js';
+import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog } from './ui.js';
 import { calcAngle, getVisibleRect } from './utils.js';
 import { checkBodyInFrame, checkIsStatic } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
@@ -41,6 +41,27 @@ window.addEventListener('deviceorientation', (event) => {
     }
     updateToastRotation();
     try { updateDynamicIslandRotation(); } catch(e){}
+});
+
+/* ---------- Button Listeners ---------- */
+document.getElementById('btn-ignore-unstable').addEventListener('click', () => {
+    state.ignoreUnstable = true;
+    state.isUnstableCheckActive = false;
+    hideDialog('unstable');
+    
+    // 弹出确认对话框
+    showDialog('confirm-ready');
+});
+
+document.getElementById('btn-confirm-ready').addEventListener('click', () => {
+    hideDialog('confirm-ready');
+    
+    // 用户确认准备好了，直接开始倒计时
+    state.autoRecordState = 'COUNTDOWN';
+    state.countdownStartTime = Date.now();
+    
+    // 强制跳过静止检测
+    state.ignoreUnstable = true;
 });
 
 /* ---------- Camera ---------- */
@@ -106,6 +127,16 @@ function loop(ts) {
 
     if (!state.poseLandmarker) {
         state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+        
+        // Draw video even if AI is loading to prevent black screen
+        state.ctx.save();
+        if (state.facingMode === "user") {
+            state.ctx.translate(state.canvas.width, 0);
+            state.ctx.scale(-1, 1);
+        }
+        state.ctx.drawImage(state.video, 0, 0, state.canvas.width, state.canvas.height);
+        state.ctx.restore();
+
         if (!state.isRecording) {
             state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
             drawSafeZone(ts);
@@ -177,13 +208,54 @@ function processAndDraw(lm) {
 
         if (!inFrame) {
             statusText = frameMsg;
-        } else if (!isStatic) {
-            statusText = "请保持不动";
+            state.isUnstableCheckActive = false; // 不在框内，重置不稳检测
         } else if (!isPoseCorrect) {
             statusText = "请直立身体";
+            state.isUnstableCheckActive = false; 
+        } else if (!isStatic) {
+            if (state.ignoreUnstable) {
+                 // 如果用户选择忽略静止检测
+                statusText = "请保持不动";
+            } else {
+                statusText = "请保持不动";
+                
+                // 开始检测不稳时长
+                if (!state.isUnstableCheckActive) {
+                    state.isUnstableCheckActive = true;
+                    state.unstableStartTime = Date.now();
+                } else {
+                    const unstableDuration = Date.now() - state.unstableStartTime;
+                    if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
+                        // 超过2秒不稳，弹出提示
+                        showDialog('unstable');
+                    }
+                }
+            }
         } else {
+            // 是静止的
+            state.isUnstableCheckActive = false;
+        }
+        
+        if (!inFrame) {
+            // already handled
+        } else if (!isPoseCorrect) {
+             // already handled
+        } else if (!isStatic && !state.ignoreUnstable) {
+             // already handled above
+        } else {
+            // In Frame, Pose Correct, and (Static OR IgnoreUnstable)
             isReady = true;
             statusText = "准备就绪";
+        }
+
+        // 如果对话框显示中，不更新 Toast 和 Dynamic Island，避免冲突
+        const isDialogVisible = document.getElementById('dialog-unstable').style.display !== 'none' || 
+                                document.getElementById('dialog-confirm-ready').style.display !== 'none';
+
+        if (isDialogVisible) {
+            state.lastFrameLandmarks = lm;
+            drawSkeleton(lm);
+            return; // 早期返回，不更新状态机
         }
 
         state.lastFrameLandmarks = lm;
@@ -210,10 +282,28 @@ function processAndDraw(lm) {
             }
         } else {
             if (state.autoRecordState === 'COUNTDOWN') {
-                console.log("倒计时中断：条件不再满足");
+                // 如果是在忽略静止的情况下，轻微晃动不应该打断倒计时
+                // 除非出框或者姿势严重错误
+                if (state.ignoreUnstable && inFrame && isPoseCorrect) {
+                     // 继续倒计时，忽略轻微晃动
+                     const elapsed = Date.now() - state.countdownStartTime;
+                     const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
+                     shouldShowDynamicIsland = true;
+                     dynamicIslandMsg = "保持不动";
+                     drawCountdown(remaining);
+                     if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
+                         _startMediaRecorder();
+                         shouldShowDynamicIsland = false;
+                     }
+                } else {
+                    console.log("倒计时中断：条件不再满足");
+                    state.autoRecordState = 'IDLE';
+                }
+            } else {
+                state.autoRecordState = 'IDLE';
             }
-            state.autoRecordState = 'IDLE';
         }
+
 
         if (shouldShowDynamicIsland && !state.isRecording) {
             showDynamicIsland(dynamicIslandMsg);

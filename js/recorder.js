@@ -110,6 +110,9 @@ export function startRecord() {
     state.autoRecordState = 'IDLE'; 
     state.countdownStartTime = 0;
     hideToast();
+    state.ignoreUnstable = false;
+    state.isUnstableCheckActive = false;
+    state.unstableStartTime = 0;
 }
 
 export function pauseRecord() {
@@ -118,6 +121,9 @@ export function pauseRecord() {
         state.autoRecordState = 'DISABLED'; 
         hideToast();
         hideDynamicIsland();
+        state.ignoreUnstable = false;
+        state.isUnstableCheckActive = false;
+        state.unstableStartTime = 0;
         console.log("已取消准备/倒计时");
         if (window.flutter_inappwebview) {
                 window.flutter_inappwebview.callHandler("onRecordPaused");

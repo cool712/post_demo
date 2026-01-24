@@ -3,9 +3,11 @@ import { state } from './state.js';
 const statusToast = document.getElementById("status-toast");
 const dynamicIsland = document.getElementById("dynamic-island-prompt");
 const dynamicIslandText = document.getElementById("dynamic-island-text");
+const dialogUnstable = document.getElementById("dialog-unstable");
+const dialogConfirmReady = document.getElementById("dialog-confirm-ready");
 
 export function showToast(msg) {
-    if (statusToast.textContent !== msg) {
+    // ...if (statusToast.textContent !== msg) {
         statusToast.textContent = msg;
     }
     if (!statusToast.classList.contains("show")) {
@@ -95,4 +97,45 @@ export function updateToastRotation() {
     }
 
     statusToast.style.transform = transform;
+}
+
+export function showDialog(type) {
+    if (type === 'unstable') {
+        dialogUnstable.style.display = 'flex';
+        updateDialogRotation(dialogUnstable);
+    } else if (type === 'confirm-ready') {
+        dialogConfirmReady.style.display = 'flex';
+        updateDialogRotation(dialogConfirmReady);
+    }
+}
+
+export function hideDialog(type) {
+    if (type === 'unstable') {
+        dialogUnstable.style.display = 'none';
+    } else if (type === 'confirm-ready') {
+        dialogConfirmReady.style.display = 'none';
+    }
+}
+
+export function updateDialogRotation(dialogElement) {
+    if (!dialogElement || dialogElement.style.display === 'none') return;
+    
+    const content = dialogElement.querySelector('.dialog-content');
+    if (!content) return;
+
+    const { currentDeviceRotation } = state;
+    
+    // 对话框整体是 flex center，我们只需要旋转内部的 content
+    let transform = "";
+    if (currentDeviceRotation === 90) {
+        transform = "rotate(90deg)";
+    } else if (currentDeviceRotation === -90) {
+        transform = "rotate(-90deg)";
+    } else if (currentDeviceRotation === 180) {
+        transform = "rotate(180deg)";
+    } else {
+        transform = "rotate(0deg)";
+    }
+    
+    content.style.transform = transform;
 }

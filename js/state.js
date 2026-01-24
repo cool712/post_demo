@@ -18,7 +18,12 @@ export const state = {
     
     // Recording Canvas (Off-screen)
     recordingCanvas: null,
-    recordingCtx: null
+    recordingCtx: null,
+
+    // Unstable Detection State
+    unstableStartTime: 0,
+    isUnstableCheckActive: false,
+    ignoreUnstable: false
 };
 
 export const CONSTANTS = {
@@ -26,5 +31,6 @@ export const CONSTANTS = {
     COUNTDOWN_DURATION: 3000,
     STATIC_CHECK_POINTS: [11, 12, 23, 24, 25, 26],
     MOVEMENT_THRESHOLD: 0.005,
-    VISIBILITY_THRESHOLD: 0.5
+    VISIBILITY_THRESHOLD: 0.5,
+    UNSTABLE_TIMEOUT: 2000 // 2 seconds
 };
