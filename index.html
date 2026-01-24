@@ -69,16 +69,17 @@
                 /* top/left/transform set by JS */
                 background: #000;
                 color: #fff;
-                padding: 12px 24px;
+                padding: 8px 20px;
                 border-radius: 50px;
-                font-size: 20px;
+                font-size: 16px;
                 font-weight: bold;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                gap: 12px;
+                gap: 8px;
                 z-index: 100;
                 opacity: 0;
+                transform-origin: 0 0; /* 关键：改为左上角为变换原点，方便统一计算 */
                 transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.3s, left 0.3s, right 0.3s, bottom 0.3s;
                 pointer-events: none;
                 white-space: nowrap;
@@ -88,8 +89,8 @@
                 opacity: 1;
             }
             #dynamic-island-icon {
-                width: 28px;
-                height: 28px;
+                width: 24px;
+                height: 24px;
                 background: #ffcc00;
                 border-radius: 50%;
                 display: flex;
@@ -97,7 +98,7 @@
                 justify-content: center;
                 color: #000;
                 font-weight: 900;
-                font-size: 18px;
+                font-size: 14px;
             }
 		</style>
 	</head>
@@ -168,40 +169,59 @@
             }
 
             function updateDynamicIslandRotation() {
-                const scale = dynamicIsland.classList.contains("show") ? 1 : 0;
-                
-                // 重置定位样式
-                dynamicIsland.style.top = "";
-                dynamicIsland.style.left = "";
-                dynamicIsland.style.right = "";
-                dynamicIsland.style.bottom = "";
-                dynamicIsland.style.transform = "";
+            const scale = dynamicIsland.classList.contains("show") ? 1 : 0;
+            
+            // 重置定位样式
+            dynamicIsland.style.top = "";
+            dynamicIsland.style.left = "";
+            dynamicIsland.style.right = "";
+            dynamicIsland.style.bottom = "";
+            dynamicIsland.style.transform = "";
 
-                const margin = 48; // 距离屏幕边缘的距离，增加以避开刘海
-                
-                if (currentDeviceRotation === 90) {
-                    // 左横屏 (Home键在右)，视觉顶部在屏幕左侧
-                    dynamicIsland.style.left = `${margin}px`;
-                    dynamicIsland.style.top = "50%";
-                    // 旋转90度，使得文字垂直向上（相对于屏幕） -> 也就是相对于用户水平
-                    dynamicIsland.style.transform = `translate(0, -50%) rotate(90deg) scale(${scale})`;
-                } else if (currentDeviceRotation === -90) {
-                    // 右横屏 (Home键在左)，视觉顶部在屏幕右侧
-                    dynamicIsland.style.right = `${margin}px`;
-                    dynamicIsland.style.top = "50%";
-                    dynamicIsland.style.transform = `translate(0, -50%) rotate(-90deg) scale(${scale})`;
-                } else if (currentDeviceRotation === 180) {
-                    // 倒立
-                    dynamicIsland.style.bottom = `${margin}px`;
-                    dynamicIsland.style.left = "50%";
-                    dynamicIsland.style.transform = `translate(-50%, 0) rotate(180deg) scale(${scale})`;
-                } else {
-                    // 竖屏
-                    dynamicIsland.style.top = `${margin}px`;
-                    dynamicIsland.style.left = "50%";
-                    dynamicIsland.style.transform = `translate(-50%, 0) scale(${scale})`;
-                }
+            const margin = 48; // 距离屏幕边缘的距离
+            
+            if (currentDeviceRotation === 90) {
+                // 左横屏 (Home键在右)，视觉顶部在屏幕左侧
+                // 此时使用左上角(0,0)作为变换原点
+                // 目标：垂直居中(50%)，水平靠左(margin)
+                dynamicIsland.style.left = `${margin}px`;
+                dynamicIsland.style.top = "50%";
+                // translate(-50%, -100%) 解释：
+                // X轴 -50%：将 Unrotated X 中心对齐到 left (margin) -> 旋转后变为 Visual Y 中心对齐到 margin? 不对。
+                // 旋转90度：X轴->Y轴(向下)，Y轴->-X轴(向左)
+                // 原始矩形(0,0)在(margin, 50%)
+                // X轴偏移-50%W -> 矩形左边移动到 -W/2. 旋转后变为 Y 坐标 -W/2. (Visual Y center 向上偏移 W/2). 加上 top 50%，实现垂直居中。
+                // Y轴偏移-100%H -> 矩形上边移动到 -H. 旋转后变为 X 坐标 H. (Visual X center 向右偏移 H). 加上 left margin，实现靠左布局。
+                dynamicIsland.style.transform = `translate(-50%, -100%) rotate(90deg) scale(${scale})`;
+            } else if (currentDeviceRotation === -90) {
+                // 右横屏 (Home键在左)，视觉顶部在屏幕右侧
+                dynamicIsland.style.right = `${margin}px`;
+                dynamicIsland.style.top = "50%";
+                // 旋转-90度：X轴->-Y轴(向上)，Y轴->X轴(向右)
+                // 原始矩形(0,0)在(ScreenW-margin, 50%)
+                // X轴偏移-50%W -> 矩形左边移动到 -W/2. 旋转后变为 Y 坐标 W/2. (Visual Y center 向下偏移 W/2). 加上 top 50%，实现垂直居中。
+                // Y轴偏移-100%H -> 矩形上边移动到 -H. 旋转后变为 X 坐标 -H. (Visual X center 向左偏移 H). 加上 right margin，实现靠右布局。
+                dynamicIsland.style.transform = `translate(-50%, -100%) rotate(-90deg) scale(${scale})`;
+            } else if (currentDeviceRotation === 180) {
+                // 倒立
+                dynamicIsland.style.bottom = `${margin}px`;
+                dynamicIsland.style.left = "50%";
+                // 旋转180度：X轴->-X轴，Y轴->-Y轴
+                // 原始矩形(0,0)在(50%, ScreenH-margin)
+                // X轴偏移-50%W -> 矩形左边移动到 -W/2. 旋转后变为 X 坐标 W/2. (Visual X center 向右偏移 W/2). 加上 left 50%，实现水平居中。
+                // Y轴偏移0 -> 矩形上边在 0. 旋转后变为 Y 坐标 0. 矩形向上生长(0 到 -H). 加上 bottom margin，实现靠底布局。
+                dynamicIsland.style.transform = `translate(-50%, 0) rotate(180deg) scale(${scale})`;
+            } else {
+                // 竖屏 (默认)
+                dynamicIsland.style.top = `${margin}px`;
+                dynamicIsland.style.left = "50%";
+                // 旋转0度
+                // 原始矩形(0,0)在(50%, margin)
+                // X轴偏移-50%W -> 实现水平居中
+                // Y轴偏移0 -> 实现靠顶布局
+                dynamicIsland.style.transform = `translate(-50%, 0) scale(${scale})`;
             }
+        }
             
             // 初始化调用一次
             try { updateDynamicIslandRotation(); } catch(e){}
