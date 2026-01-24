@@ -136,6 +136,13 @@ function loop(ts) {
 
     if (!state.running) return;
 
+    // 每一帧检查并更新 Canvas 尺寸，确保与视频流一致
+    if (state.video.videoWidth && state.video.videoHeight && 
+        (state.canvas.width !== state.video.videoWidth || state.canvas.height !== state.video.videoHeight)) {
+        state.canvas.width = state.video.videoWidth;
+        state.canvas.height = state.video.videoHeight;
+    }
+
     if (!state.poseLandmarker) {
         state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
         
@@ -190,6 +197,11 @@ function loop(ts) {
         }
     } catch (e) {
         console.warn("Detection skipped:", e);
+    }
+
+    // 如果正在录制，无论是否检测到人体，都更新录制画布
+    if (state.isRecording) {
+        updateRecordingCanvas();
     }
 }
 
@@ -340,11 +352,6 @@ function processAndDraw(lm) {
     }
 
     drawSkeleton(lm);
-    
-    // 如果正在录制，更新录制画布
-    if (state.isRecording) {
-        updateRecordingCanvas();
-    }
 }
 
 /* ---------- Exports to Window ---------- */
