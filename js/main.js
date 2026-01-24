@@ -200,6 +200,7 @@ function processAndDraw(lm) {
 
                 if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
                     _startMediaRecorder();
+                    shouldShowDynamicIsland = false; // 确保录制开始后不显示
                 }
             }
         } else {
@@ -209,7 +210,7 @@ function processAndDraw(lm) {
             state.autoRecordState = 'IDLE';
         }
 
-        if (shouldShowDynamicIsland) {
+        if (shouldShowDynamicIsland && !state.isRecording) {
             showDynamicIsland(dynamicIslandMsg);
         } else {
             hideDynamicIsland();
