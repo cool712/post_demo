@@ -60,13 +60,13 @@ export function updateRecordingCanvas() {
         // 如果是 -90 (右横屏)，转 90 变竖
         
         if (currentDeviceRotation === 90) {
-            rotation = -Math.PI / 2;
-        } else if (currentDeviceRotation === -90) {
             rotation = Math.PI / 2;
+        } else if (currentDeviceRotation === -90) {
+            rotation = -Math.PI / 2;
         } else {
             // 传感器数据为0，但画面宽>高，说明一定是横屏。
-            // 默认按最常见的左横屏处理 (Home键在右)，逆时针转90度变竖
-            rotation = -Math.PI / 2; 
+            // 默认按最常见的左横屏处理 (Home键在右)，顺时针转90度变竖
+            rotation = Math.PI / 2; 
         }
     } else {
         // 源是竖屏
