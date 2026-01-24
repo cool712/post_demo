@@ -118,14 +118,13 @@ export function hideDialog(type) {
 }
 
 export function updateDialogRotation(dialogElement) {
-    if (!dialogElement || dialogElement.style.display === 'none') return;
+    if (!dialogElement) return;
     
     const content = dialogElement.querySelector('.dialog-content');
     if (!content) return;
 
     const { currentDeviceRotation } = state;
     
-    // 对话框整体是 flex center，我们只需要旋转内部的 content
     let transform = "";
     if (currentDeviceRotation === 90) {
         transform = "rotate(90deg)";
@@ -141,6 +140,8 @@ export function updateDialogRotation(dialogElement) {
 }
 
 export function updateAllDialogsRotation() {
-    updateDialogRotation(dialogUnstable);
-    updateDialogRotation(dialogConfirmReady);
+    const d1 = document.getElementById("dialog-unstable");
+    const d2 = document.getElementById("dialog-confirm-ready");
+    updateDialogRotation(d1);
+    updateDialogRotation(d2);
 }
