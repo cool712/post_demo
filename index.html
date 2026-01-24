@@ -467,13 +467,14 @@
                     // 综合判断状态
                     let statusText = "";
                     let isReady = false;
-                    let showDynamicPrompt = false;
+                    let dynamicIslandMsg = "";
+                    let shouldShowDynamicIsland = false;
 
                     if (!inFrame) {
                         statusText = frameMsg; // "请全身入镜" 或 "请站在检测框内"
                     } else if (!isStatic) {
-                        // statusText = "请保持静止"; // 改为灵动岛提示
-                        showDynamicPrompt = true;
+                        shouldShowDynamicIsland = true;
+                        dynamicIslandMsg = "请保持静止";
                     } else if (!isPoseCorrect) {
                         statusText = "请直立身体";
                     } else {
@@ -484,38 +485,29 @@
                     // 保存当前帧作为下一帧的对比
                     lastFrameLandmarks = lm;
 
-                    // 控制 灵动岛提示 显示/隐藏
-                    if (showDynamicPrompt) {
-                        showDynamicIsland("请保持静止");
-                    } else {
-                        hideDynamicIsland();
-                    }
-
-                    // 控制 Toast 显示/隐藏
-                    if (!isReady && statusText) {
-                        showToast(statusText);
-                    } else {
-                        hideToast();
-                    }
-
-					// 绘制调试信息
+                    // 绘制调试信息
                     ctx.save();
                     ctx.font = "bold 16px monospace";
                     ctx.fillStyle = isReady ? "#00ff00" : "#ff0000";
                     ctx.textAlign = "right";
                     ctx.fillText(`L:${Math.round(leftLegAngle)}° R:${Math.round(rightLegAngle)}°`, canvas.width - 10, 30);
-                    // ctx.fillText(statusText, canvas.width - 10, 50); // 移除 Canvas 上的状态文字
                     ctx.restore();
 
 					if (isReady) {
 						if (autoRecordState === 'IDLE') {
 							autoRecordState = 'COUNTDOWN';
 							countdownStartTime = Date.now();
+                            shouldShowDynamicIsland = true;
+                            dynamicIslandMsg = "请保持静止";
 						} else if (autoRecordState === 'COUNTDOWN') {
 							const elapsed = Date.now() - countdownStartTime;
 							const remaining = Math.ceil((COUNTDOWN_DURATION - elapsed) / 1000);
 
-							// 屏幕变绿 (半透明覆盖)
+                            // 1. 灵动岛显示 "请保持静止"
+                            shouldShowDynamicIsland = true;
+                            dynamicIslandMsg = "请保持静止";
+
+                            // 2. 屏幕变绿 (半透明覆盖) + 显示大数字
 							ctx.save();
 							ctx.fillStyle = "rgba(0, 255, 0, 0.4)"; // 增加不透明度
 							ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -544,16 +536,14 @@
 							ctx.textBaseline = "middle";
 							ctx.strokeText(remaining.toString(), 0, 0);
 							ctx.fillText(remaining.toString(), 0, 0);
-                            
-                            // 提示保持静止
-                            ctx.font = "bold 30px monospace";
-                            ctx.fillText("保持不动", 0, 100);
 							
 							ctx.restore(); // 对应 ctx.save() 用于文字旋转
+                            ctx.restore(); // 对应 绿色背景 save
 
 							if (elapsed >= COUNTDOWN_DURATION) {
 								// 倒计时结束，真正开始录制
 								_startMediaRecorder();
+                                // 录制开始后，隐藏灵动岛（由下面的统一逻辑处理，因为下一帧 autoRecordState 变了）
 							}
 						}
 					} else {
@@ -563,6 +553,21 @@
                         }
 						autoRecordState = 'IDLE';
 					}
+
+                    // 统一控制 灵动岛提示 显示/隐藏
+                    if (shouldShowDynamicIsland) {
+                        showDynamicIsland(dynamicIslandMsg);
+                    } else {
+                        hideDynamicIsland();
+                    }
+
+                    // 控制 Toast 显示/隐藏 (如果灵动岛显示了，通常隐藏Toast，避免重叠或干扰，除非是不同类型的信息)
+                    // 这里策略：如果正在倒计时(灵动岛显示中)，就不显示 "准备就绪" 的 Toast
+                    if (!isReady && statusText) {
+                        showToast(statusText);
+                    } else {
+                        hideToast();
+                    }
 				} 
 
 				console.log("Point 0 data:", lm[0]);
@@ -855,6 +860,11 @@
 				mediaRecorder.start();
 				isRecording = true;
 				autoRecordState = 'RECORDING';
+                
+                // 录制开始，清除所有提示 UI
+                hideDynamicIsland();
+                hideToast();
+
 				console.log("Recording started...");
 				// 通知 Flutter 原生端开始计时
 				if (window.flutter_inappwebview) {
