@@ -474,7 +474,7 @@
                         statusText = frameMsg; // "请全身入镜" 或 "请站在检测框内"
                     } else if (!isStatic) {
                         shouldShowDynamicIsland = true;
-                        dynamicIslandMsg = "请保持静止";
+                        dynamicIslandMsg = "保持不动";
                     } else if (!isPoseCorrect) {
                         statusText = "请直立身体";
                     } else {
@@ -498,14 +498,14 @@
 							autoRecordState = 'COUNTDOWN';
 							countdownStartTime = Date.now();
                             shouldShowDynamicIsland = true;
-                            dynamicIslandMsg = "请保持静止";
+                            dynamicIslandMsg = "保持不动";
 						} else if (autoRecordState === 'COUNTDOWN') {
 							const elapsed = Date.now() - countdownStartTime;
 							const remaining = Math.ceil((COUNTDOWN_DURATION - elapsed) / 1000);
 
-                            // 1. 灵动岛显示 "请保持静止"
+                            // 1. 灵动岛显示 "保持不动"
                             shouldShowDynamicIsland = true;
-                            dynamicIslandMsg = "请保持静止";
+                            dynamicIslandMsg = "保持不动";
 
                             // 2. 屏幕变绿 (半透明覆盖) + 显示大数字
 							ctx.save();
