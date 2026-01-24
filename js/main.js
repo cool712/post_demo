@@ -65,6 +65,15 @@ document.getElementById('btn-confirm-ready').addEventListener('click', () => {
     state.ignoreUnstable = true;
 });
 
+document.getElementById('btn-cancel-ready').addEventListener('click', () => {
+    hideDialog('confirm-ready');
+    
+    // 取消准备，重新开始检测
+    state.ignoreUnstable = false;
+    state.isUnstableCheckActive = false;
+    state.unstableStartTime = 0;
+});
+
 /* ---------- Camera ---------- */
 async function startCamera() {
     if (state.video.srcObject) state.video.srcObject.getTracks().forEach(t => t.stop());
