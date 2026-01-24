@@ -292,13 +292,12 @@ function processAndDraw(lm) {
         } else {
             if (state.autoRecordState === 'COUNTDOWN') {
                 // 如果是在忽略静止的情况下，轻微晃动不应该打断倒计时
-                // 除非出框或者姿势严重错误
-                // 修正：如果 ignoreUnstable 为 true，我们只检测 inFrame。
-                // 因为用户已经确认"忽略提示"，意味着姿势可能也不标准。
-                const shouldContinue = state.ignoreUnstable ? inFrame : (inFrame && isPoseCorrect);
+                // 修正：只有在 ignoreUnstable 为 true 时，才允许在不 Ready 的情况下继续（只要还在框内）。
+                // 如果是正常模式（!ignoreUnstable），进入此 else 分支意味着 !isReady（可能是动了，也可能是姿势不对），必须中断。
+                const shouldContinue = state.ignoreUnstable && inFrame;
 
                 if (shouldContinue) {
-                     // 继续倒计时，忽略轻微晃动
+                     // 继续倒计时
                      const elapsed = Date.now() - state.countdownStartTime;
                      const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
                      shouldShowDynamicIsland = true;
