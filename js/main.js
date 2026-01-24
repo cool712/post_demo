@@ -4,7 +4,7 @@ import {
 } from "/mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
-import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog } from './ui.js';
+import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog, updateAllDialogsRotation } from './ui.js';
 import { calcAngle, getVisibleRect } from './utils.js';
 import { checkBodyInFrame, checkIsStatic } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
@@ -123,6 +123,7 @@ async function initAI() {
 /* ---------- Loop ---------- */
 function loop(ts) {
     requestAnimationFrame(loop);
+    try { updateAllDialogsRotation(); } catch(e){}
 
     if (!state.running) return;
 
