@@ -139,3 +139,8 @@ export function updateDialogRotation(dialogElement) {
     
     content.style.transform = transform;
 }
+
+export function updateAllDialogsRotation() {
+    updateDialogRotation(dialogUnstable);
+    updateDialogRotation(dialogConfirmReady);
+}

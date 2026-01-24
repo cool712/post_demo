@@ -41,6 +41,7 @@ window.addEventListener('deviceorientation', (event) => {
     }
     updateToastRotation();
     try { updateDynamicIslandRotation(); } catch(e){}
+    try { updateAllDialogsRotation(); } catch(e){}
 });
 
 /* ---------- Button Listeners ---------- */
