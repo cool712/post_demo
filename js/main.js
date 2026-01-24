@@ -222,27 +222,35 @@ function processAndDraw(lm) {
             state.isUnstableCheckActive = false; // 不在框内，重置不稳检测
         } else if (!isPoseCorrect) {
             statusText = "请直立身体";
-            state.isUnstableCheckActive = false; 
+            // 姿势不正确，但也属于"未准备好"的一种，如果一直在框内，我们应该继续计时
+            // 但为了避免因为刚进框就触发，我们只在"非致命错误"（如手抖引起的姿势微偏）时计时？
+            // 简单起见，只要在框内，就开始计时。如果2秒都没Ready，就询问是否忽略。
         } else if (!isStable && !state.ignoreUnstable) {
-            // Not stable (either moving, or static for < 5 frames) AND not ignoring unstable
             statusText = "请保持不动";
-            
-            // 开始检测不稳时长
-            if (!state.isUnstableCheckActive) {
+        } else {
+            // In Frame, Pose Correct, and (Stable OR IgnoreUnstable)
+            isReady = true;
+            statusText = "准备就绪";
+        }
+        
+        // 统一的不稳/未准备好检测逻辑
+        if (inFrame && !isReady && !state.ignoreUnstable) {
+             if (!state.isUnstableCheckActive) {
                 state.isUnstableCheckActive = true;
                 state.unstableStartTime = Date.now();
             } else {
                 const unstableDuration = Date.now() - state.unstableStartTime;
                 if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
-                    // 超过2秒不稳，弹出提示
                     showDialog('unstable');
                 }
             }
         } else {
-            // In Frame, Pose Correct, and (Stable OR IgnoreUnstable)
-            isReady = true;
-            statusText = "准备就绪";
-            state.isUnstableCheckActive = false;
+            // 如果 Ready 了，或者不在框内，或者已经忽略了，就重置计时器
+            // 注意：如果用户已经在 COUNTDOWN 状态，我们不应该重置这个逻辑，
+            // 但这里是 processAndDraw，每帧都跑。如果 isReady，当然不需要检测不稳。
+            if (isReady || !inFrame) {
+                 state.isUnstableCheckActive = false;
+            }
         }
         
         // Check already handled above
@@ -283,7 +291,11 @@ function processAndDraw(lm) {
             if (state.autoRecordState === 'COUNTDOWN') {
                 // 如果是在忽略静止的情况下，轻微晃动不应该打断倒计时
                 // 除非出框或者姿势严重错误
-                if (state.ignoreUnstable && inFrame && isPoseCorrect) {
+                // 修正：如果 ignoreUnstable 为 true，我们只检测 inFrame。
+                // 因为用户已经确认"忽略提示"，意味着姿势可能也不标准。
+                const shouldContinue = state.ignoreUnstable ? inFrame : (inFrame && isPoseCorrect);
+
+                if (shouldContinue) {
                      // 继续倒计时，忽略轻微晃动
                      const elapsed = Date.now() - state.countdownStartTime;
                      const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
