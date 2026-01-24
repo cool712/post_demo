@@ -109,7 +109,7 @@ function loop(ts) {
         if (!state.isRecording) {
             state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
             drawSafeZone(ts);
-            showDynamicIsland("AI资源加载中");
+            showDynamicIsland("AI模型加载中");
         }
         return;
     }
