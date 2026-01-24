@@ -7,7 +7,7 @@ const dialogUnstable = document.getElementById("dialog-unstable");
 const dialogConfirmReady = document.getElementById("dialog-confirm-ready");
 
 export function showToast(msg) {
-    // ...if (statusToast.textContent !== msg) {
+    if (statusToast.textContent !== msg) {
         statusToast.textContent = msg;
     }
     if (!statusToast.classList.contains("show")) {
