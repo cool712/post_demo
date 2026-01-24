@@ -36,53 +36,57 @@ export function updateRecordingCanvas() {
 
     recordingCtx.save();
     
-    // 强制重置变换矩阵，确保清空操作是基于全画布坐标的
+    // 1. 重置变换矩阵并清空画布
     recordingCtx.setTransform(1, 0, 0, 1, 0, 0);
     recordingCtx.clearRect(0, 0, destW, destH);
+    
+    // 2. 填充黑色背景（防止旋转时的缝隙或透明问题）
     recordingCtx.fillStyle = '#000000';
     recordingCtx.fillRect(0, 0, destW, destH);
     
-    // 恢复变换逻辑
+    // 3. 移动到中心准备旋转
     recordingCtx.translate(destW / 2, destH / 2);
 
-    // 计算缩放比例，确保完整显示（Contain 模式）
-    const isRotated = Math.abs(currentDeviceRotation) === 90;
-    // 旋转后的内容尺寸
+    // 4. 智能判断旋转角度
+    // 目标画布(recordingCanvas)始终是竖屏比例 (init时已固定)
+    // 源画布(canvas)可能会随手机旋转变为横屏 (w > h)
+    const isSrcLandscape = srcW > srcH;
+    let rotation = 0;
+
+    if (isSrcLandscape) {
+        // 源是横屏，必须旋转90度才能填满竖屏录制画面
+        if (currentDeviceRotation === 90) {
+            rotation = -Math.PI / 2;
+        } else if (currentDeviceRotation === -90) {
+            rotation = Math.PI / 2;
+        } else {
+            // 传感器数据可能延迟或为0，但画面已是横屏，强制旋转
+            rotation = -Math.PI / 2; 
+        }
+    } else {
+        // 源是竖屏
+        if (currentDeviceRotation === 180) {
+            rotation = Math.PI;
+        } else {
+            rotation = 0;
+        }
+    }
+    
+    recordingCtx.rotate(rotation);
+
+    // 5. 计算缩放比例 (Contain模式，确保完整显示)
+    // 旋转后的逻辑尺寸
+    const isRotated = Math.abs(rotation) > 0.1; 
     const contentWidth = isRotated ? srcH : srcW;
     const contentHeight = isRotated ? srcW : srcH;
-    // 计算缩放：取宽缩放和高缩放的较小值，以保证内容完全放入画布
-    let scale = Math.min(destW / contentWidth, destH / contentHeight);
-
-    // 特殊处理：竖屏录制过程中切换到横屏
-    // 此时 contentWidth(1280) > destW(720)，导致 scale 只有 0.56，画面非常小
-    // 为了提升体验，我们限制最小缩放比例，允许一定程度的裁剪（左右裁剪，上下留黑）
-    // 强制让旋转后的"高"（原宽 720）至少填满目标的"宽"（720）
-    if (isRotated && scale < 0.7) {
-        // 计算填满宽度的比例：destW / contentHeight (720 / 720 = 1)
-        const fitWidthScale = destW / contentHeight;
-        scale = Math.max(scale, fitWidthScale);
-    }
+    
+    // 计算缩放：取宽缩放和高缩放的较小值
+    // 由于我们强制旋转了横屏内容，这里的 aspect ratio 应该非常接近，scale 应该接近 1.0
+    const scale = Math.min(destW / contentWidth, destH / contentHeight);
     
     recordingCtx.scale(scale, scale);
 
-    if (currentDeviceRotation === 90) {
-        // 手机左横屏 (Home键在右)，画面是横的
-        // 录制画布是竖的。
-        // 我们需要把画面逆时针转90度 (因为预览是横的，要想变竖，得转)
-        // 实际上：Sensor=90. CSS transform rotate(90).
-        // 尝试：-90度
-        recordingCtx.rotate(-Math.PI / 2);
-    } else if (currentDeviceRotation === -90) {
-        // 手机右横屏 (Home键在左)
-        recordingCtx.rotate(Math.PI / 2);
-    } else if (currentDeviceRotation === 180) {
-        recordingCtx.rotate(Math.PI);
-    } else {
-        // 0 度，竖屏
-        recordingCtx.rotate(0);
-    }
-
-    // 绘制源画布中心到目标画布中心
+    // 6. 绘制
     recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2);
     
     recordingCtx.restore();
