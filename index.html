@@ -853,6 +853,7 @@
                      // 行为：取消准备，进入 DISABLED 状态
                      autoRecordState = 'DISABLED'; 
                      hideToast(); // 隐藏可能存在的倒计时或提示
+                     hideDynamicIsland(); // 确保隐藏灵动岛
                      console.log("已取消准备/倒计时");
                      // 通知 Flutter 状态变为“暂停/取消”
                      if (window.flutter_inappwebview) {
