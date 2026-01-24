@@ -104,11 +104,7 @@
 	</head>
 
 	<body>
-		<script>
-			window.onerror = function(msg, url, line, col, error) {
-				alert("Global Error: " + msg + "\nLine: " + line + "\nCol: " + col);
-			};
-		</script>
+
         <div id="dynamic-island-prompt">
             <div id="dynamic-island-icon">!</div>
             <span id="dynamic-island-text">请保持静止</span>
@@ -337,7 +333,6 @@
 					});
 				} catch (err) {
 					console.error("Camera Error: " + err.message);
-                    alert("Camera Error: " + err.message);
 				}
 			}
 
@@ -476,14 +471,6 @@
 
                     // 保存当前帧作为下一帧的对比
                     lastFrameLandmarks = lm;
-
-                    // 绘制调试信息
-                    ctx.save();
-                    ctx.font = "bold 16px monospace";
-                    ctx.fillStyle = isReady ? "#00ff00" : "#ff0000";
-                    ctx.textAlign = "right";
-                    ctx.fillText(`L:${Math.round(leftLegAngle)}° R:${Math.round(rightLegAngle)}°`, canvas.width - 10, 30);
-                    ctx.restore();
 
 					if (isReady) {
 						if (autoRecordState === 'IDLE') {
