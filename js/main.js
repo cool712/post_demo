@@ -8,7 +8,7 @@ import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToast
 import { calcAngle, getVisibleRect } from './utils.js';
 import { checkBodyInFrame, checkIsStatic } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
-import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder } from './recorder.js';
+import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
 /* ---------- DOM Initialization ---------- */
 state.video = document.getElementById("video");
@@ -238,6 +238,11 @@ function processAndDraw(lm) {
     }
 
     drawSkeleton(lm);
+    
+    // 如果正在录制，更新录制画布
+    if (state.isRecording) {
+        updateRecordingCanvas();
+    }
 }
 
 /* ---------- Exports to Window ---------- */

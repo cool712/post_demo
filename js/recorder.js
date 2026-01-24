@@ -6,12 +6,75 @@ let recordedChunks = [];
 let lastVideoBlob = null;
 let lastJsonBlob = null;
 
+function initRecordingCanvas() {
+    if (!state.recordingCanvas) {
+        state.recordingCanvas = document.createElement('canvas');
+        state.recordingCtx = state.recordingCanvas.getContext('2d', { alpha: false });
+    }
+
+    const { canvas, currentDeviceRotation } = state;
+    const isLandscape = Math.abs(currentDeviceRotation) === 90;
+
+    // 如果横屏，交换宽高，使录制画布保持竖屏比例
+    if (isLandscape) {
+        state.recordingCanvas.width = canvas.height;
+        state.recordingCanvas.height = canvas.width;
+    } else {
+        state.recordingCanvas.width = canvas.width;
+        state.recordingCanvas.height = canvas.height;
+    }
+}
+
+export function updateRecordingCanvas() {
+    if (!state.isRecording || !state.recordingCanvas || !state.recordingCtx) return;
+
+    const { canvas, recordingCanvas, recordingCtx, currentDeviceRotation } = state;
+    const srcW = canvas.width;
+    const srcH = canvas.height;
+    const destW = recordingCanvas.width;
+    const destH = recordingCanvas.height;
+
+    recordingCtx.save();
+    
+    // 默认清空
+    // recordingCtx.clearRect(0, 0, destW, destH);
+    // 直接绘制会覆盖，如果是旋转，需要填充背景防止黑边？
+    // 这里因为是全屏旋转，应该会覆盖全。
+    
+    recordingCtx.translate(destW / 2, destH / 2);
+
+    if (currentDeviceRotation === 90) {
+        // 手机左横屏 (Home键在右)，画面是横的
+        // 录制画布是竖的。
+        // 我们需要把画面逆时针转90度 (因为预览是横的，要想变竖，得转)
+        // 实际上：Sensor=90. CSS transform rotate(90).
+        // 尝试：-90度
+        recordingCtx.rotate(-Math.PI / 2);
+    } else if (currentDeviceRotation === -90) {
+        // 手机右横屏 (Home键在左)
+        recordingCtx.rotate(Math.PI / 2);
+    } else if (currentDeviceRotation === 180) {
+        recordingCtx.rotate(Math.PI);
+    } else {
+        // 0 度，竖屏
+        recordingCtx.rotate(0);
+    }
+
+    // 绘制源画布中心到目标画布中心
+    recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2);
+    
+    recordingCtx.restore();
+}
+
 function _startMediaRecorder() {
     recordedChunks = [];
     state.poseDataJson = {};
     state.currentRecordFrameIndex = 0;
 
-    const stream = state.canvas.captureStream(25);
+    // 初始化录制专用 Canvas
+    initRecordingCanvas();
+
+    const stream = state.recordingCanvas.captureStream(25);
     let options = {
         mimeType: 'video/mp4;codecs=avc1'
     };

@@ -14,7 +14,11 @@ export const state = {
     // DOM Elements (will be set in main.js)
     video: null,
     canvas: null,
-    ctx: null
+    ctx: null,
+    
+    // Recording Canvas (Off-screen)
+    recordingCanvas: null,
+    recordingCtx: null
 };
 
 export const CONSTANTS = {
