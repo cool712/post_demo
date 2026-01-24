@@ -36,10 +36,9 @@ export function updateRecordingCanvas() {
 
     recordingCtx.save();
     
-    // 默认清空
-    // recordingCtx.clearRect(0, 0, destW, destH);
-    // 直接绘制会覆盖，如果是旋转，需要填充背景防止黑边？
-    // 这里因为是全屏旋转，应该会覆盖全。
+    // 每一帧都重置背景，防止重影
+    recordingCtx.fillStyle = '#000000';
+    recordingCtx.fillRect(0, 0, destW, destH);
     
     recordingCtx.translate(destW / 2, destH / 2);
 
