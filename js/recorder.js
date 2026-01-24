@@ -55,12 +55,17 @@ export function updateRecordingCanvas() {
 
     if (isSrcLandscape) {
         // 源是横屏，必须旋转90度才能填满竖屏录制画面
+        // 关键修正：如果 currentDeviceRotation 是 0 (可能传感器没动但画面变了)，默认转 -90 (通常是左横屏)
+        // 如果是 90 (左横屏)，转 -90 变竖
+        // 如果是 -90 (右横屏)，转 90 变竖
+        
         if (currentDeviceRotation === 90) {
             rotation = -Math.PI / 2;
         } else if (currentDeviceRotation === -90) {
             rotation = Math.PI / 2;
         } else {
-            // 传感器数据可能延迟或为0，但画面已是横屏，强制旋转
+            // 传感器数据为0，但画面宽>高，说明一定是横屏。
+            // 默认按最常见的左横屏处理 (Home键在右)，逆时针转90度变竖
             rotation = -Math.PI / 2; 
         }
     } else {
