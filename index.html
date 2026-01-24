@@ -104,6 +104,11 @@
 	</head>
 
 	<body>
+		<script>
+			window.onerror = function(msg, url, line, col, error) {
+				alert("Global Error: " + msg + "\nLine: " + line + "\nCol: " + col);
+			};
+		</script>
         <div id="dynamic-island-prompt">
             <div id="dynamic-island-icon">!</div>
             <span id="dynamic-island-text">请保持静止</span>
@@ -332,6 +337,7 @@
 					});
 				} catch (err) {
 					console.error("Camera Error: " + err.message);
+                    alert("Camera Error: " + err.message);
 				}
 			}
 
