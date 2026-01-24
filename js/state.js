@@ -23,7 +23,8 @@ export const state = {
     // Unstable Detection State
     unstableStartTime: 0,
     isUnstableCheckActive: false,
-    ignoreUnstable: false
+    ignoreUnstable: false,
+    consecutiveStaticFrames: 0
 };
 
 export const CONSTANTS = {

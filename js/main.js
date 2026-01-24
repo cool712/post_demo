@@ -201,6 +201,17 @@ function processAndDraw(lm) {
         const rightLegAngle = calcAngle(lm[24], lm[26], lm[28]);
         const isPoseCorrect = leftLegAngle > 170 && rightLegAngle > 170;
 
+        // Update Static Frames Counter
+        if (isStatic) {
+            state.consecutiveStaticFrames = (state.consecutiveStaticFrames || 0) + 1;
+        } else {
+            state.consecutiveStaticFrames = 0;
+        }
+        
+        // Define "Stable" as having been static for a few consecutive frames
+        // This prevents single-frame "static" glitches from resetting the unstable timer
+        const isStable = state.consecutiveStaticFrames > 5;
+
         let statusText = "";
         let isReady = false;
         let dynamicIslandMsg = "";
@@ -212,42 +223,30 @@ function processAndDraw(lm) {
         } else if (!isPoseCorrect) {
             statusText = "请直立身体";
             state.isUnstableCheckActive = false; 
-        } else if (!isStatic) {
-            if (state.ignoreUnstable) {
-                 // 如果用户选择忽略静止检测
-                statusText = "请保持不动";
+        } else if (!isStable && !state.ignoreUnstable) {
+            // Not stable (either moving, or static for < 5 frames) AND not ignoring unstable
+            statusText = "请保持不动";
+            
+            // 开始检测不稳时长
+            if (!state.isUnstableCheckActive) {
+                state.isUnstableCheckActive = true;
+                state.unstableStartTime = Date.now();
             } else {
-                statusText = "请保持不动";
-                
-                // 开始检测不稳时长
-                if (!state.isUnstableCheckActive) {
-                    state.isUnstableCheckActive = true;
-                    state.unstableStartTime = Date.now();
-                } else {
-                    const unstableDuration = Date.now() - state.unstableStartTime;
-                    if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
-                        // 超过2秒不稳，弹出提示
-                        showDialog('unstable');
-                    }
+                const unstableDuration = Date.now() - state.unstableStartTime;
+                if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
+                    // 超过2秒不稳，弹出提示
+                    showDialog('unstable');
                 }
             }
         } else {
-            // 是静止的
+            // In Frame, Pose Correct, and (Stable OR IgnoreUnstable)
+            isReady = true;
+            statusText = "准备就绪";
             state.isUnstableCheckActive = false;
         }
         
-        if (!inFrame) {
-            // already handled
-        } else if (!isPoseCorrect) {
-             // already handled
-        } else if (!isStatic && !state.ignoreUnstable) {
-             // already handled above
-        } else {
-            // In Frame, Pose Correct, and (Static OR IgnoreUnstable)
-            isReady = true;
-            statusText = "准备就绪";
-        }
-
+        // Check already handled above
+        
         // 如果对话框显示中，不更新 Toast 和 Dynamic Island，避免冲突
         const isDialogVisible = document.getElementById('dialog-unstable').style.display !== 'none' || 
                                 document.getElementById('dialog-confirm-ready').style.display !== 'none';
