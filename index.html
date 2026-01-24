@@ -749,8 +749,8 @@
                 let totalMovement = 0;
                 let count = 0;
                 
-                // 扩大检测点范围：躯干(肩/胯) + 鼻子 + 膝盖
-                const STATIC_CHECK_POINTS = [0, 11, 12, 23, 24, 25, 26];
+                // 检测点范围：躯干(肩/胯) + 膝盖 (去除鼻子以减少误判)
+                const STATIC_CHECK_POINTS = [11, 12, 23, 24, 25, 26];
                 
                 for (let i of STATIC_CHECK_POINTS) {
                     const curr = currentLm[i];
@@ -764,8 +764,9 @@
 
                 const avgMovement = totalMovement / count;
                 
-                // 阈值：调低一点以增加灵敏度
-                const MOVEMENT_THRESHOLD = 0.002; 
+                // 阈值：调高以降低灵敏度，避免微小抖动被误判为移动
+                // 0.002 -> 0.005
+                const MOVEMENT_THRESHOLD = 0.005; 
 
                 if (avgMovement > MOVEMENT_THRESHOLD) {
                     return { isStatic: false, msg: "身体晃动过大" };
