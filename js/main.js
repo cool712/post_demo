@@ -143,17 +143,7 @@ function loop(ts) {
         state.canvas.height = state.video.videoHeight;
     }
 
-    if (!state.poseLandmarker) {
-        state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
-        
-        if (!state.isRecording) {
-            state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
-            drawSafeZone(ts);
-            showDynamicIsland("AI模型加载中");
-        }
-        return;
-    }
-
+    // 1. 始终先绘制视频底图（防止黑屏）
     state.ctx.save();
     if (state.facingMode === "user") {
         state.ctx.translate(state.canvas.width, 0);
@@ -161,6 +151,16 @@ function loop(ts) {
     }
     state.ctx.drawImage(state.video, 0, 0, state.canvas.width, state.canvas.height);
     state.ctx.restore();
+
+    if (!state.poseLandmarker) {
+        // AI 未就绪时的覆盖层
+        if (!state.isRecording) {
+            state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
+            drawSafeZone(ts);
+            showDynamicIsland("AI模型加载中");
+        }
+        return;
+    }
 
     if (!state.isRecording) {
         state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
