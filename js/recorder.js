@@ -12,13 +12,19 @@ function initRecordingCanvas() {
         state.recordingCtx = state.recordingCanvas.getContext('2d', { alpha: false });
     }
 
-    const { canvas, currentDeviceRotation } = state;
-    const isLandscape = Math.abs(currentDeviceRotation) === 90;
-
-    // 始终保持与源画布一致的宽高比，这样横屏录制就是横屏视频，竖屏录制就是竖屏视频
-    // 避免强制旋转导致的方向错误
-    state.recordingCanvas.width = canvas.width;
-    state.recordingCanvas.height = canvas.height;
+    const { canvas } = state;
+    
+    // 强制录制画布始终为竖屏比例 (Height > Width)
+    // 这样无论横着录还是竖着录，生成的视频文件都是竖屏的，方便在 App 播放
+    if (canvas.width > canvas.height) {
+        // 如果当前源是横屏，则交换宽高作为录制尺寸
+        state.recordingCanvas.width = canvas.height;
+        state.recordingCanvas.height = canvas.width;
+    } else {
+        // 如果当前源是竖屏，直接使用
+        state.recordingCanvas.width = canvas.width;
+        state.recordingCanvas.height = canvas.height;
+    }
 }
 
 export function updateRecordingCanvas() {
@@ -43,33 +49,37 @@ export function updateRecordingCanvas() {
     // 3. 移动到中心准备绘制
     recordingCtx.translate(destW / 2, destH / 2);
 
-    // 4. 计算旋转角度
-    // 只有当源和目标的横竖屏状态不一致时（例如录制过程中旋转了手机），才需要旋转画面
-    const isSrcLandscape = srcW > srcH;
-    const isDestLandscape = destW > destH;
+    // 4. 计算旋转
     let rotation = 0;
-
-    if (isSrcLandscape !== isDestLandscape) {
-        // 源和目标方向不一致，需要旋转90度来填充
-        // 根据设备旋转方向决定顺时针还是逆时针
-        if (currentDeviceRotation === 90 || currentDeviceRotation === -90) {
-             // 简单的逻辑：转90度填满
-             rotation = Math.PI / 2;
-        } else {
-             rotation = Math.PI / 2;
+    
+    // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
+    if (srcW > srcH) {
+        // 横屏转竖屏
+        // 默认假设手机是向左旋转的（摄像头在左，Home键在右），此时画面是向左倒的
+        // 需要顺时针旋转 90 度扶正
+        rotation = Math.PI / 2;
+        
+        // 如果能检测到是向右旋转（-90），则需要逆时针旋转
+        if (currentDeviceRotation === -90) {
+            rotation = -Math.PI / 2;
         }
     } else {
-        // 方向一致，不需要旋转
-        rotation = 0;
+        // 源是竖屏，可能倒置（180度）
+        if (currentDeviceRotation === 180) {
+            rotation = Math.PI;
+        }
     }
-    
+
     recordingCtx.rotate(rotation);
 
-    // 5. 计算缩放比例 (Contain模式)
-    const isRotated = Math.abs(rotation) > 0.1; 
+    // 5. 计算缩放 (Cover模式：填满屏幕)
+    // 注意：因为我们已经旋转了坐标系，所以要用旋转后的逻辑宽高来计算
+    const isRotated = Math.abs(rotation) > 0.1;
     const contentWidth = isRotated ? srcH : srcW;
     const contentHeight = isRotated ? srcW : srcH;
     
+    // 使用 Math.max 来实现 Cover 效果（填满，可能裁剪），或者 Math.min 实现 Contain（黑边）
+    // 用户之前的需求似乎是填满且不留黑边，所以尝试接近 1 的缩放
     const scale = Math.min(destW / contentWidth, destH / contentHeight);
     
     recordingCtx.scale(scale, scale);
