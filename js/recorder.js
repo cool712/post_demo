@@ -12,16 +12,14 @@ function initRecordingCanvas() {
         state.recordingCtx = state.recordingCanvas.getContext('2d', { alpha: false });
     }
 
-    const { canvas } = state;
-    
-    // 强制录制画布始终为竖屏比例 (Height > Width)
-    // 这样无论横着录还是竖着录，生成的视频文件都是竖屏的，方便在 App 播放
-    if (canvas.width > canvas.height) {
-        // 如果当前源是横屏，则交换宽高作为录制尺寸
+    const { canvas, currentDeviceRotation } = state;
+    const isLandscape = Math.abs(currentDeviceRotation) === 90;
+
+    // 如果横屏，交换宽高，使录制画布保持竖屏比例
+    if (isLandscape) {
         state.recordingCanvas.width = canvas.height;
         state.recordingCanvas.height = canvas.width;
     } else {
-        // 如果当前源是竖屏，直接使用
         state.recordingCanvas.width = canvas.width;
         state.recordingCanvas.height = canvas.height;
     }
@@ -38,65 +36,31 @@ export function updateRecordingCanvas() {
 
     recordingCtx.save();
     
-    // 1. 重置变换矩阵并清空画布
-    recordingCtx.setTransform(1, 0, 0, 1, 0, 0);
-    recordingCtx.clearRect(0, 0, destW, destH);
+    // 默认清空
+    // recordingCtx.clearRect(0, 0, destW, destH);
+    // 直接绘制会覆盖，如果是旋转，需要填充背景防止黑边？
+    // 这里因为是全屏旋转，应该会覆盖全。
     
-    // 2. 填充黑色背景
-    recordingCtx.fillStyle = '#000000';
-    recordingCtx.fillRect(0, 0, destW, destH);
-    
-    // 3. 移动到中心准备绘制
     recordingCtx.translate(destW / 2, destH / 2);
 
-    // 4. 计算旋转
-    let rotation = 0;
-    
-    // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
-    if (srcW > srcH) {
-        // 横屏转竖屏
-        const isUserFacing = state.facingMode === "user";
-        
-        if (isUserFacing) {
-            // 前置摄像头 (镜像)
-            // 之前的 +90度 (Math.PI/2) 用户反馈方向不对
-            // 改为默认 -90度 (-Math.PI/2)
-            // 并尝试根据设备角度微调（如果能获取到）
-            if (state.currentDeviceRotation === 90) {
-                 rotation = Math.PI / 2;
-            } else {
-                 rotation = -Math.PI / 2;
-            }
-        } else {
-            // 后置摄像头
-            // 保持与前置一致的逻辑结构，默认 -90度
-            if (state.currentDeviceRotation === 90) {
-                 rotation = Math.PI / 2;
-            } else {
-                 rotation = -Math.PI / 2;
-            }
-        }
+    if (currentDeviceRotation === 90) {
+        // 手机左横屏 (Home键在右)，画面是横的
+        // 录制画布是竖的。
+        // 我们需要把画面逆时针转90度 (因为预览是横的，要想变竖，得转)
+        // 实际上：Sensor=90. CSS transform rotate(90).
+        // 尝试：-90度
+        recordingCtx.rotate(-Math.PI / 2);
+    } else if (currentDeviceRotation === -90) {
+        // 手机右横屏 (Home键在左)
+        recordingCtx.rotate(Math.PI / 2);
+    } else if (currentDeviceRotation === 180) {
+        recordingCtx.rotate(Math.PI);
     } else {
-        // 源是竖屏，可能倒置（180度）
-        // 简单处理：竖屏不旋转，或者只处理倒置
-        // 这里暂时忽略倒置，因为很少人倒着拿手机录竖屏
+        // 0 度，竖屏
+        recordingCtx.rotate(0);
     }
 
-    recordingCtx.rotate(rotation);
-
-    // 5. 计算缩放 (Cover模式：填满屏幕)
-    // 注意：因为我们已经旋转了坐标系，所以要用旋转后的逻辑宽高来计算
-    const isRotated = Math.abs(rotation) > 0.1;
-    const contentWidth = isRotated ? srcH : srcW;
-    const contentHeight = isRotated ? srcW : srcH;
-    
-    // 使用 Math.max 来实现 Cover 效果（填满，可能裁剪），或者 Math.min 实现 Contain（黑边）
-    // 用户之前的需求似乎是填满且不留黑边，所以尝试接近 1 的缩放
-    const scale = Math.min(destW / contentWidth, destH / contentHeight);
-    
-    recordingCtx.scale(scale, scale);
-
-    // 6. 绘制
+    // 绘制源画布中心到目标画布中心
     recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2);
     
     recordingCtx.restore();
