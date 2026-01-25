@@ -67,21 +67,25 @@ export function updateRecordingCanvas() {
         
         if (isUserFacing) {
             // 前置摄像头 (镜像)
-            // 逆时针转手机(-90) -> 头在3点 -> 需逆时针转(-90)扶正
-            // 顺时针转手机(90) -> 头在9点 -> 需顺时针转(90)扶正
-            if (deviceRot === -90) {
+            // 用户反馈逆时针旋转无效/不对，现尝试彻底反转逻辑
+            // 假设 Canvas 内图像：
+            // -90度 (Home右): 需顺时针旋转 (PI/2) 扶正
+            // 90度 (Home左): 需逆时针旋转 (-PI/2) 扶正
+            // 0度 (未知): 默认按主流 Home右 处理 -> 顺时针
+            if (deviceRot === 90) {
                 rotation = -Math.PI / 2; 
             } else {
                 rotation = Math.PI / 2;
             }
         } else {
-            // 后置摄像头 (正常)
-            // 逆时针转手机(-90) -> 头在9点 -> 需顺时针转(90)扶正
-            // 顺时针转手机(90) -> 头在3点 -> 需逆时针转(-90)扶正
-            if (deviceRot === -90) {
-                rotation = Math.PI / 2;
-            } else {
+            // 后置摄像头
+            // 同样逻辑：
+            // -90度 (Home右): 需顺时针旋转 (PI/2) 扶正
+            // 90度 (Home左): 需逆时针旋转 (-PI/2) 扶正
+            if (deviceRot === 90) {
                 rotation = -Math.PI / 2;
+            } else {
+                rotation = Math.PI / 2;
             }
         }
     } else {
