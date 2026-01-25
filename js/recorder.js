@@ -55,23 +55,31 @@ export function updateRecordingCanvas() {
     // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
     if (srcW > srcH) {
         // 横屏转竖屏
-        // 注意：前置摄像头 (facingMode: 'user') 在 main.js 中已经被镜像翻转 (scale(-1, 1))
-        
-        // 情况 A: 左横屏 (Home键在右, currentDeviceRotation = 90)
-        // 原始流：头指向左。
-        // 镜像后：头指向右。
-        // 修正：需要逆时针旋转 90 度 (-90) 才能指向上。
-        
-        // 情况 B: 右横屏 (Home键在左, currentDeviceRotation = -90)
-        // 原始流：头指向右。
-        // 镜像后：头指向左。
-        // 修正：需要顺时针旋转 90 度 (+90) 才能指向上。
+        // 根据 facingMode 动态判断旋转逻辑
+        const isUserFacing = state.facingMode === "user";
 
-        // 默认按左横屏处理 (最常见习惯)
-        rotation = -Math.PI / 2;
-        
-        if (currentDeviceRotation === -90) {
-            rotation = Math.PI / 2;
+        if (isUserFacing) {
+            // 前置摄像头 (镜像模式)
+            // 左横屏 (90): 头指向右 -> 逆时针90度扶正 (-PI/2)
+            // 右横屏 (-90): 头指向左 -> 顺时针90度扶正 (PI/2)
+            
+            if (currentDeviceRotation === -90) {
+                rotation = Math.PI / 2;
+            } else {
+                // 默认 90 或其他
+                rotation = -Math.PI / 2;
+            }
+        } else {
+            // 后置摄像头 (正常模式，无镜像)
+            // 左横屏 (90): 头指向左 -> 顺时针90度扶正 (PI/2)
+            // 右横屏 (-90): 头指向右 -> 逆时针90度扶正 (-PI/2)
+            
+            if (currentDeviceRotation === -90) {
+                rotation = -Math.PI / 2;
+            } else {
+                // 默认 90 或其他
+                rotation = Math.PI / 2;
+            }
         }
     } else {
         // 源是竖屏，可能倒置（180度）
