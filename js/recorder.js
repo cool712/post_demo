@@ -57,28 +57,31 @@ export function updateRecordingCanvas() {
         // 横屏转竖屏
         // 根据 facingMode 动态判断旋转逻辑
         const isUserFacing = state.facingMode === "user";
-
+        
+        // 强制统一旋转逻辑：无论前后置，只要方向不对就转！
+        // 如果当前是“老样子”（假设是顺时针转了90度不对），那就试反方向
+        // 这里我们做一个更稳健的判断：
+        
+        // 核心问题：Canvas 的坐标系旋转和视觉旋转的关系
+        // 1. 顺时针旋转90度 (PI/2) -> 把向左倒的画面扶正
+        // 2. 逆时针旋转90度 (-PI/2) -> 把向右倒的画面扶正
+        
+        // 如果您现在看到的是“老样子”（方向不对），说明之前的判断反了。
+        // 我们直接交换逻辑。
+        
         if (isUserFacing) {
-            // 前置摄像头 (镜像模式)
-            // 左横屏 (90): 头指向右 -> 逆时针90度扶正 (-PI/2)
-            // 右横屏 (-90): 头指向左 -> 顺时针90度扶正 (PI/2)
-            
+            // 前置摄像头
             if (currentDeviceRotation === -90) {
-                rotation = Math.PI / 2;
+                rotation = -Math.PI / 2; // 原来是 PI/2
             } else {
-                // 默认 90 或其他
-                rotation = -Math.PI / 2;
+                rotation = Math.PI / 2;  // 原来是 -PI/2
             }
         } else {
-            // 后置摄像头 (正常模式，无镜像)
-            // 左横屏 (90): 头指向左 -> 顺时针90度扶正 (PI/2)
-            // 右横屏 (-90): 头指向右 -> 逆时针90度扶正 (-PI/2)
-            
+            // 后置摄像头
             if (currentDeviceRotation === -90) {
-                rotation = -Math.PI / 2;
+                rotation = Math.PI / 2;  // 原来是 -PI/2
             } else {
-                // 默认 90 或其他
-                rotation = Math.PI / 2;
+                rotation = -Math.PI / 2; // 原来是 PI/2
             }
         }
     } else {
