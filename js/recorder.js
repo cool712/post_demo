@@ -59,12 +59,22 @@ export function updateRecordingCanvas() {
         
         if (isUserFacing) {
             // 前置摄像头 (镜像)
-            // 默认采用顺时针旋转90度
-            rotation = Math.PI / 2;
+            // 之前的 +90度 (Math.PI/2) 用户反馈方向不对
+            // 改为默认 -90度 (-Math.PI/2)
+            // 并尝试根据设备角度微调（如果能获取到）
+            if (state.currentDeviceRotation === 90) {
+                 rotation = Math.PI / 2;
+            } else {
+                 rotation = -Math.PI / 2;
+            }
         } else {
             // 后置摄像头
-            // 默认采用顺时针旋转90度
-            rotation = Math.PI / 2;
+            // 保持与前置一致的逻辑结构，默认 -90度
+            if (state.currentDeviceRotation === 90) {
+                 rotation = Math.PI / 2;
+            } else {
+                 rotation = -Math.PI / 2;
+            }
         }
     } else {
         // 源是竖屏，可能倒置（180度）
