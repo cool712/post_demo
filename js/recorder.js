@@ -12,20 +12,18 @@ function initRecordingCanvas() {
         state.recordingCtx = state.recordingCanvas.getContext('2d', { alpha: false });
     }
 
-    const { canvas, currentDeviceRotation } = state;
-    // 获取长边和短边
-    const longSide = Math.max(canvas.width, canvas.height);
-    const shortSide = Math.min(canvas.width, canvas.height);
+    const { canvas } = state;
     
-    // 根据起始时的设备方向决定录制画布的宽高
-    const isLandscape = Math.abs(currentDeviceRotation) === 90;
-
-    if (isLandscape) {
-        state.recordingCanvas.width = longSide;
-        state.recordingCanvas.height = shortSide;
+    // 强制录制画布始终为竖屏比例 (Height > Width)
+    // 这样无论横着录还是竖着录，生成的视频文件都是竖屏的，方便在 App 播放
+    if (canvas.width > canvas.height) {
+        // 如果当前源是横屏，则交换宽高作为录制尺寸
+        state.recordingCanvas.width = canvas.height;
+        state.recordingCanvas.height = canvas.width;
     } else {
-        state.recordingCanvas.width = shortSide;
-        state.recordingCanvas.height = longSide;
+        // 如果当前源是竖屏，直接使用
+        state.recordingCanvas.width = canvas.width;
+        state.recordingCanvas.height = canvas.height;
     }
 }
 
@@ -33,62 +31,82 @@ export function updateRecordingCanvas() {
     if (!state.isRecording || !state.recordingCanvas || !state.recordingCtx) return;
 
     const { canvas, recordingCanvas, recordingCtx, currentDeviceRotation } = state;
-    // const srcW = canvas.width;
-    // const srcH = canvas.height;
+    const srcW = canvas.width;
+    const srcH = canvas.height;
     const destW = recordingCanvas.width;
     const destH = recordingCanvas.height;
 
-    // 1. 清除上一帧
-    recordingCtx.clearRect(0, 0, destW, destH);
-
     recordingCtx.save();
+    
+    // 1. 重置变换矩阵并清空画布
+    recordingCtx.setTransform(1, 0, 0, 1, 0, 0);
+    recordingCtx.clearRect(0, 0, destW, destH);
+    
+    // 2. 填充黑色背景
+    recordingCtx.fillStyle = '#000000';
+    recordingCtx.fillRect(0, 0, destW, destH);
+    
+    // 3. 移动到中心准备绘制
     recordingCtx.translate(destW / 2, destH / 2);
 
-    // 核心逻辑：
-    // 目标是让画面始终充满 recordingCanvas (Cover 模式)
-    // 且方向正确。
-    
-    // 1. 计算需要的旋转角度
-    // 如果 recordingCanvas 是竖屏 (destW < destH)
-    //    - 设备竖屏 (0/180): 不旋转 (或180)，直接画
-    //    - 设备横屏 (90/-90): 旋转90度，让横屏画面立起来填满竖屏画布
-    // 如果 recordingCanvas 是横屏 (destW > destH)
-    //    - 设备横屏 (90/-90): 不旋转 (或180)，直接画
-    //    - 设备竖屏 (0/180): 旋转-90度，让竖屏画面躺下来填满横屏画布
-    
-    const isDestPortrait = destW < destH;
+    // 4. 计算旋转
     let rotation = 0;
+    
+    // 获取设备旋转角度，优先使用 state，如果为0则尝试 window.orientation
+    let deviceRot = currentDeviceRotation;
+    if (deviceRot === 0 && window.orientation !== undefined) {
+        // window.orientation: 90 (Home右, 对应我们的 -90), -90 (Home左, 对应我们的 90)
+        if (window.orientation === 90) deviceRot = -90;
+        if (window.orientation === -90) deviceRot = 90;
+    }
 
-    if (isDestPortrait) {
-        // 录制画布是竖的
-        if (currentDeviceRotation === 90) rotation = -Math.PI / 2;
-        else if (currentDeviceRotation === -90) rotation = Math.PI / 2;
-        else if (currentDeviceRotation === 180) rotation = Math.PI;
-        else rotation = 0;
+    // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
+    if (srcW > srcH) {
+        // 横屏转竖屏
+        const isUserFacing = state.facingMode === "user";
+        
+        if (isUserFacing) {
+            // 前置摄像头 (镜像)
+            // 逆时针转手机(-90) -> 头在3点 -> 需逆时针转(-90)扶正
+            // 顺时针转手机(90) -> 头在9点 -> 需顺时针转(90)扶正
+            if (deviceRot === -90) {
+                rotation = -Math.PI / 2; 
+            } else {
+                rotation = Math.PI / 2;
+            }
+        } else {
+            // 后置摄像头 (正常)
+            // 逆时针转手机(-90) -> 头在9点 -> 需顺时针转(90)扶正
+            // 顺时针转手机(90) -> 头在3点 -> 需逆时针转(-90)扶正
+            if (deviceRot === -90) {
+                rotation = Math.PI / 2;
+            } else {
+                rotation = -Math.PI / 2;
+            }
+        }
     } else {
-        // 录制画布是横的
-        if (currentDeviceRotation === 0) rotation = -Math.PI / 2; // 竖转横
-        else if (currentDeviceRotation === 180) rotation = Math.PI / 2;
-        else if (currentDeviceRotation === 90) rotation = 0; // 横对横，通常不需要转（或者看前置摄像头镜像）
-        else if (currentDeviceRotation === -90) rotation = Math.PI; // 可能需要翻转180
-        // 注意：这里的 rotation 是相对于“标准正向”的修正。
-        // 简单处理：
-        // 如果当前是 90 (左横)，录制也是横，则不转。
-        // 如果当前是 -90 (右横)，录制也是横，可能要转180保持头朝上？
-        // 暂时假设 0 和 90 是基准。
-        if (currentDeviceRotation === -90) rotation = Math.PI; 
+        // 源是竖屏，可能倒置（180度）
+        if (deviceRot === 180) {
+            rotation = Math.PI;
+        }
     }
 
     recordingCtx.rotate(rotation);
 
-    // 2. 绘制
-    // 旋转后，坐标系变了。
-    // 我们始终绘制 canvas (源)，让其中心对齐。
-    // 由于我们旋转的目的就是为了让宽高匹配 (竖对竖，横对横)，
-    // 所以直接绘制 canvas.width/height 对应的矩形即可。
-    // 稍微放大一点点以防白边 (Cover)
-    const scale = 1.0; 
-    recordingCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+    // 5. 计算缩放 (Cover模式：填满屏幕)
+    // 注意：因为我们已经旋转了坐标系，所以要用旋转后的逻辑宽高来计算
+    const isRotated = Math.abs(rotation) > 0.1;
+    const contentWidth = isRotated ? srcH : srcW;
+    const contentHeight = isRotated ? srcW : srcH;
+    
+    // 使用 Math.max 来实现 Cover 效果（填满，可能裁剪），或者 Math.min 实现 Contain（黑边）
+    // 用户之前的需求似乎是填满且不留黑边，所以尝试接近 1 的缩放
+    const scale = Math.min(destW / contentWidth, destH / contentHeight);
+    
+    recordingCtx.scale(scale, scale);
+
+    // 6. 绘制
+    recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2);
     
     recordingCtx.restore();
 }
