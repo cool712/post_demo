@@ -71,10 +71,12 @@ export function updateRecordingCanvas() {
         
         if (isUserFacing) {
             // 前置摄像头
+            // 统一逻辑：无论是前置还是后置，旋转方向应该是一致的（为了让画面"竖"过来）
+            // 之前的逻辑是前置和后置相反，现在修正为与后置一致
             if (currentDeviceRotation === -90) {
-                rotation = -Math.PI / 2; // 原来是 PI/2
+                rotation = Math.PI / 2; 
             } else {
-                rotation = Math.PI / 2;  // 原来是 -PI/2
+                rotation = -Math.PI / 2;
             }
         } else {
             // 后置摄像头
