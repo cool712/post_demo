@@ -84,10 +84,8 @@ async function startCamera() {
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: state.facingMode,
-                // 调整为竖屏优先的分辨率建议，这有助于在竖屏启动时获得正确的流比例
-                // 同时也允许浏览器在旋转时动态调整
-                width: { ideal: 720 },
-                height: { ideal: 1280 }
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
             }
         });
         state.video.srcObject = stream;
