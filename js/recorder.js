@@ -52,43 +52,41 @@ export function updateRecordingCanvas() {
     // 4. 计算旋转
     let rotation = 0;
     
+    // 获取设备旋转角度，优先使用 state，如果为0则尝试 window.orientation
+    let deviceRot = currentDeviceRotation;
+    if (deviceRot === 0 && window.orientation !== undefined) {
+        // window.orientation: 90 (Home右, 对应我们的 -90), -90 (Home左, 对应我们的 90)
+        if (window.orientation === 90) deviceRot = -90;
+        if (window.orientation === -90) deviceRot = 90;
+    }
+
     // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
     if (srcW > srcH) {
         // 横屏转竖屏
-        // 根据 facingMode 动态判断旋转逻辑
         const isUserFacing = state.facingMode === "user";
         
-        // 强制统一旋转逻辑：无论前后置，只要方向不对就转！
-        // 如果当前是“老样子”（假设是顺时针转了90度不对），那就试反方向
-        // 这里我们做一个更稳健的判断：
-        
-        // 核心问题：Canvas 的坐标系旋转和视觉旋转的关系
-        // 1. 顺时针旋转90度 (PI/2) -> 把向左倒的画面扶正
-        // 2. 逆时针旋转90度 (-PI/2) -> 把向右倒的画面扶正
-        
-        // 如果您现在看到的是“老样子”（方向不对），说明之前的判断反了。
-        // 我们直接交换逻辑。
-        
         if (isUserFacing) {
-            // 前置摄像头
-            // 统一逻辑：无论是前置还是后置，旋转方向应该是一致的（为了让画面"竖"过来）
-            // 之前的逻辑是前置和后置相反，现在修正为与后置一致
-            if (currentDeviceRotation === -90) {
-                rotation = Math.PI / 2; 
+            // 前置摄像头 (镜像)
+            // 逆时针转手机(-90) -> 头在3点 -> 需逆时针转(-90)扶正
+            // 顺时针转手机(90) -> 头在9点 -> 需顺时针转(90)扶正
+            if (deviceRot === -90) {
+                rotation = -Math.PI / 2; 
             } else {
-                rotation = -Math.PI / 2;
+                rotation = Math.PI / 2;
             }
         } else {
-            // 后置摄像头
-            if (currentDeviceRotation === -90) {
-                rotation = Math.PI / 2;  // 原来是 -PI/2
+            // 后置摄像头 (正常)
+            // 逆时针转手机(-90) -> 头在9点 -> 需顺时针转(90)扶正
+            // 顺时针转手机(90) -> 头在3点 -> 需逆时针转(-90)扶正
+            if (deviceRot === -90) {
+                rotation = Math.PI / 2;
             } else {
-                rotation = -Math.PI / 2; // 原来是 PI/2
+                rotation = -Math.PI / 2;
             }
         }
     } else {
         // 源是竖屏，可能倒置（180度）
-        if (currentDeviceRotation === 180) {
+        if (deviceRot === 180) {
             rotation = Math.PI;
         }
     }
