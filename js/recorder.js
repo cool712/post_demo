@@ -17,18 +17,10 @@ function initRecordingCanvas() {
     const longSide = Math.max(canvas.width, canvas.height);
     const shortSide = Math.min(canvas.width, canvas.height);
     
-    // 根据起始时的设备方向决定录制画布的宽高
-    // 如果是横屏 (90/-90)，则宽长高短
-    // 如果是竖屏 (0/180)，则宽短高长
-    const isLandscape = Math.abs(currentDeviceRotation) === 90;
-
-    if (isLandscape) {
-        state.recordingCanvas.width = longSide;
-        state.recordingCanvas.height = shortSide;
-    } else {
-        state.recordingCanvas.width = shortSide;
-        state.recordingCanvas.height = longSide;
-    }
+    // 强制锁定为竖屏分辨率 (宽 < 高)
+    // 无论当前设备是横屏还是竖屏，录制出来的视频文件永远是竖长的
+    state.recordingCanvas.width = shortSide;
+    state.recordingCanvas.height = longSide;
 }
 
 export function updateRecordingCanvas() {
@@ -42,9 +34,6 @@ export function updateRecordingCanvas() {
 
     // 1. 清除上一帧，防止画面残留
     recordingCtx.clearRect(0, 0, destW, destH);
-    // 可选：填充黑色背景
-    // recordingCtx.fillStyle = '#000';
-    // recordingCtx.fillRect(0, 0, destW, destH);
 
     recordingCtx.save();
     
@@ -52,32 +41,33 @@ export function updateRecordingCanvas() {
     recordingCtx.translate(destW / 2, destH / 2);
 
     // 计算旋转角度
-    // 目标是让源画面填满录制画布。
-    // 如果录制画布是竖的 (destW < destH)，而当前设备是横屏 (currentDeviceRotation=90)，
-    // 我们需要旋转画面，使其变竖。
-    
-    // 这里简化逻辑：根据当前设备角度进行绝对旋转补偿
-    // 注意：initRecordingCanvas 决定了 destW/destH 的基准
-    // 如果录制中途旋转了，destW/destH 不会变，但 currentDeviceRotation 变了。
+    // 目标：始终填满竖屏的 recordingCanvas
     
     let rotation = 0;
+    
+    // 如果设备是横屏 (90/-90)，源画面是横的 (宽 > 高)
+    // 目标画布是竖的 (宽 < 高)
+    // 必须旋转 90 度才能填满
+    
     if (currentDeviceRotation === 90) {
+        // 顺时针旋转90度 (手机左横屏时，画面需要逆时针转回去？或者顺时针转成竖屏)
+        // 经测试通常是 -90 (逆时针) 
         rotation = -Math.PI / 2;
     } else if (currentDeviceRotation === -90) {
         rotation = Math.PI / 2;
     } else if (currentDeviceRotation === 180) {
         rotation = Math.PI;
+    } else {
+        // 0度竖屏，无需旋转
+        rotation = 0;
     }
     
     recordingCtx.rotate(rotation);
 
     // 绘制源画布
-    // 注意：旋转后坐标系也变了。
-    // 如果旋转了 90 度，X轴变Y轴。
-    // 我们需要判断绘制的宽高是否需要交换，或者简单地绘制在中心。
-    // 为了确保填满，我们可以比较旋转后的源宽高与目标宽高。
-    
-    // 简单处理：始终以源画布的尺寸绘制，依靠旋转来对齐
+    // 注意：如果是横屏旋转90度后，源画面的"宽"变成了垂直方向，"高"变成了水平方向
+    // 此时 srcW (长边) 对应 destH (长边)，srcH (短边) 对应 destW (短边)
+    // 所以直接绘制即可完美覆盖
     recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2, srcW, srcH);
     
     recordingCtx.restore();
