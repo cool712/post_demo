@@ -13,15 +13,21 @@ function initRecordingCanvas() {
     }
 
     const { canvas, currentDeviceRotation } = state;
+    // 获取长边和短边，假设 canvas 分辨率通常是固定的（如 1280x720）
+    const longSide = Math.max(canvas.width, canvas.height);
+    const shortSide = Math.min(canvas.width, canvas.height);
+    
+    // 根据起始时的设备方向决定录制画布的宽高
+    // 如果是横屏 (90/-90)，则宽长高短
+    // 如果是竖屏 (0/180)，则宽短高长
     const isLandscape = Math.abs(currentDeviceRotation) === 90;
 
-    // 如果横屏，交换宽高，使录制画布保持竖屏比例
     if (isLandscape) {
-        state.recordingCanvas.width = canvas.height;
-        state.recordingCanvas.height = canvas.width;
+        state.recordingCanvas.width = longSide;
+        state.recordingCanvas.height = shortSide;
     } else {
-        state.recordingCanvas.width = canvas.width;
-        state.recordingCanvas.height = canvas.height;
+        state.recordingCanvas.width = shortSide;
+        state.recordingCanvas.height = longSide;
     }
 }
 
@@ -34,34 +40,45 @@ export function updateRecordingCanvas() {
     const destW = recordingCanvas.width;
     const destH = recordingCanvas.height;
 
+    // 1. 清除上一帧，防止画面残留
+    recordingCtx.clearRect(0, 0, destW, destH);
+    // 可选：填充黑色背景
+    // recordingCtx.fillStyle = '#000';
+    // recordingCtx.fillRect(0, 0, destW, destH);
+
     recordingCtx.save();
     
-    // 默认清空
-    // recordingCtx.clearRect(0, 0, destW, destH);
-    // 直接绘制会覆盖，如果是旋转，需要填充背景防止黑边？
-    // 这里因为是全屏旋转，应该会覆盖全。
-    
+    // 移动到画布中心
     recordingCtx.translate(destW / 2, destH / 2);
 
+    // 计算旋转角度
+    // 目标是让源画面填满录制画布。
+    // 如果录制画布是竖的 (destW < destH)，而当前设备是横屏 (currentDeviceRotation=90)，
+    // 我们需要旋转画面，使其变竖。
+    
+    // 这里简化逻辑：根据当前设备角度进行绝对旋转补偿
+    // 注意：initRecordingCanvas 决定了 destW/destH 的基准
+    // 如果录制中途旋转了，destW/destH 不会变，但 currentDeviceRotation 变了。
+    
+    let rotation = 0;
     if (currentDeviceRotation === 90) {
-        // 手机左横屏 (Home键在右)，画面是横的
-        // 录制画布是竖的。
-        // 我们需要把画面逆时针转90度 (因为预览是横的，要想变竖，得转)
-        // 实际上：Sensor=90. CSS transform rotate(90).
-        // 尝试：-90度
-        recordingCtx.rotate(-Math.PI / 2);
+        rotation = -Math.PI / 2;
     } else if (currentDeviceRotation === -90) {
-        // 手机右横屏 (Home键在左)
-        recordingCtx.rotate(Math.PI / 2);
+        rotation = Math.PI / 2;
     } else if (currentDeviceRotation === 180) {
-        recordingCtx.rotate(Math.PI);
-    } else {
-        // 0 度，竖屏
-        recordingCtx.rotate(0);
+        rotation = Math.PI;
     }
+    
+    recordingCtx.rotate(rotation);
 
-    // 绘制源画布中心到目标画布中心
-    recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2);
+    // 绘制源画布
+    // 注意：旋转后坐标系也变了。
+    // 如果旋转了 90 度，X轴变Y轴。
+    // 我们需要判断绘制的宽高是否需要交换，或者简单地绘制在中心。
+    // 为了确保填满，我们可以比较旋转后的源宽高与目标宽高。
+    
+    // 简单处理：始终以源画布的尺寸绘制，依靠旋转来对齐
+    recordingCtx.drawImage(canvas, -srcW / 2, -srcH / 2, srcW, srcH);
     
     recordingCtx.restore();
 }
