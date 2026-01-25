@@ -52,14 +52,6 @@ export function updateRecordingCanvas() {
     // 4. 计算旋转
     let rotation = 0;
     
-    // 获取设备旋转角度，优先使用 state，如果为0则尝试 window.orientation
-    let deviceRot = currentDeviceRotation;
-    if (deviceRot === 0 && window.orientation !== undefined) {
-        // window.orientation: 90 (Home右, 对应我们的 -90), -90 (Home左, 对应我们的 90)
-        if (window.orientation === 90) deviceRot = -90;
-        if (window.orientation === -90) deviceRot = 90;
-    }
-
     // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
     if (srcW > srcH) {
         // 横屏转竖屏
@@ -67,32 +59,17 @@ export function updateRecordingCanvas() {
         
         if (isUserFacing) {
             // 前置摄像头 (镜像)
-            // 用户反馈逆时针旋转无效/不对，现尝试彻底反转逻辑
-            // 假设 Canvas 内图像：
-            // -90度 (Home右): 需顺时针旋转 (PI/2) 扶正
-            // 90度 (Home左): 需逆时针旋转 (-PI/2) 扶正
-            // 0度 (未知): 默认按主流 Home右 处理 -> 顺时针
-            if (deviceRot === 90) {
-                rotation = -Math.PI / 2; 
-            } else {
-                rotation = Math.PI / 2;
-            }
+            // 默认采用顺时针旋转90度
+            rotation = Math.PI / 2;
         } else {
             // 后置摄像头
-            // 同样逻辑：
-            // -90度 (Home右): 需顺时针旋转 (PI/2) 扶正
-            // 90度 (Home左): 需逆时针旋转 (-PI/2) 扶正
-            if (deviceRot === 90) {
-                rotation = -Math.PI / 2;
-            } else {
-                rotation = Math.PI / 2;
-            }
+            // 默认采用顺时针旋转90度
+            rotation = Math.PI / 2;
         }
     } else {
         // 源是竖屏，可能倒置（180度）
-        if (deviceRot === 180) {
-            rotation = Math.PI;
-        }
+        // 简单处理：竖屏不旋转，或者只处理倒置
+        // 这里暂时忽略倒置，因为很少人倒着拿手机录竖屏
     }
 
     recordingCtx.rotate(rotation);
