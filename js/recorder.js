@@ -55,13 +55,23 @@ export function updateRecordingCanvas() {
     // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
     if (srcW > srcH) {
         // 横屏转竖屏
-        // 默认假设手机是向左旋转的（摄像头在左，Home键在右），此时画面是向左倒的
-        // 需要顺时针旋转 90 度扶正
-        rotation = Math.PI / 2;
+        // 注意：前置摄像头 (facingMode: 'user') 在 main.js 中已经被镜像翻转 (scale(-1, 1))
         
-        // 如果能检测到是向右旋转（-90），则需要逆时针旋转
+        // 情况 A: 左横屏 (Home键在右, currentDeviceRotation = 90)
+        // 原始流：头指向左。
+        // 镜像后：头指向右。
+        // 修正：需要逆时针旋转 90 度 (-90) 才能指向上。
+        
+        // 情况 B: 右横屏 (Home键在左, currentDeviceRotation = -90)
+        // 原始流：头指向右。
+        // 镜像后：头指向左。
+        // 修正：需要顺时针旋转 90 度 (+90) 才能指向上。
+
+        // 默认按左横屏处理 (最常见习惯)
+        rotation = -Math.PI / 2;
+        
         if (currentDeviceRotation === -90) {
-            rotation = -Math.PI / 2;
+            rotation = Math.PI / 2;
         }
     } else {
         // 源是竖屏，可能倒置（180度）
