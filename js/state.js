@@ -24,7 +24,11 @@ export const state = {
     unstableStartTime: 0,
     isUnstableCheckActive: false,
     ignoreUnstable: false,
-    consecutiveStaticFrames: 0
+    consecutiveStaticFrames: 0,
+
+    // Handheld Detection
+    isHandheld: true, // 默认为手持
+    motionScore: 0
 };
 
 export const CONSTANTS = {

@@ -20,6 +20,40 @@ let frameCount = 0;
 let lastFpsCheck = 0;
 
 /* ---------- Event Listeners ---------- */
+// Handheld Detection
+const motionBuffer = [];
+const MOTION_SAMPLE_SIZE = 20;
+const HANDHELD_THRESHOLD = 0.15; // m/s^2
+
+window.addEventListener('devicemotion', (event) => {
+    const acc = event.acceleration;
+    if (!acc) return;
+
+    const x = acc.x || 0;
+    const y = acc.y || 0;
+    const z = acc.z || 0;
+    const magnitude = Math.sqrt(x*x + y*y + z*z);
+
+    motionBuffer.push(magnitude);
+    if (motionBuffer.length > MOTION_SAMPLE_SIZE) {
+        motionBuffer.shift();
+        
+        // Analyze
+        const sum = motionBuffer.reduce((a, b) => a + b, 0);
+        const average = sum / motionBuffer.length;
+        
+        state.motionScore = average;
+        
+        // Simple logic: if consistent motion > threshold, likely handheld or moving
+        // < 0.05 is likely stand
+        if (average < 0.05) {
+            state.isHandheld = false;
+        } else {
+            state.isHandheld = true;
+        }
+    }
+});
+
 window.addEventListener('deviceorientation', (event) => {
     const gamma = event.gamma;
     const beta = event.beta;
@@ -50,8 +84,12 @@ document.getElementById('btn-ignore-unstable').addEventListener('click', () => {
     state.isUnstableCheckActive = false;
     hideDialog('unstable');
     
-    // 弹出确认对话框
-    showDialog('confirm-ready');
+    // 如果是手持模式 (或者用户点击了忽略)，直接开始倒计时/录制
+    // 原逻辑是弹出 confirm-ready
+    // 新逻辑：跳过 confirm-ready，直接进入 COUNTDOWN
+    
+    state.autoRecordState = 'COUNTDOWN';
+    state.countdownStartTime = Date.now();
 });
 
 document.getElementById('btn-confirm-ready').addEventListener('click', () => {
@@ -255,6 +293,12 @@ function processAndDraw(lm) {
             } else {
                 const unstableDuration = Date.now() - state.unstableStartTime;
                 if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
+                    // 如果是手持状态，或者只是普通的静止检测超时
+                    // 用户要求：如果是手持的情况下就弹出忽略弹框
+                    // 现在的逻辑是超时就弹出 dialog-unstable，且该对话框有忽略按钮
+                    // 修改后的按钮逻辑已经支持"直接开始"
+                    // 这里只需要确保对话框正常弹出即可
+                    // 也可以根据 isHandheld 动态修改对话框的文本？(可选)
                     showDialog('unstable');
                 }
             }
