@@ -25,6 +25,7 @@ export const state = {
     isUnstableCheckActive: false,
     ignoreUnstable: false,
     consecutiveStaticFrames: 0,
+    lastPoseCorrectTime: 0,
 
     // Handheld Detection
     isHandheld: true, // 默认为手持

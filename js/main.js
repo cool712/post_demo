@@ -254,6 +254,11 @@ function processAndDraw(lm) {
         const rightLegAngle = calcAngle(lm[24], lm[26], lm[28]);
         const isPoseCorrect = leftLegAngle > 170 && rightLegAngle > 170;
 
+        // 更新最后一次姿势正确的时间
+        if (isPoseCorrect) {
+            state.lastPoseCorrectTime = Date.now();
+        }
+
         // Update Static Frames Counter
         if (isStatic) {
             state.consecutiveStaticFrames = (state.consecutiveStaticFrames || 0) + 1;
@@ -288,7 +293,12 @@ function processAndDraw(lm) {
         
         // 只有当姿势正确但身体晃动时，才触发忽略弹框
         // 如果姿势不正确，应优先提示用户调整姿势，而不是弹出忽略晃动的提示
-        const shouldCheckUnstable = inFrame && isPoseCorrect && !isStable && !state.ignoreUnstable;
+        // 优化：增加缓冲机制。如果姿势偶尔检测不正确（例如手持晃动导致），只要距离上次正确时间在允许范围内，仍视为"姿势基本正确"
+        // 这样可以防止因手抖导致的 isPoseCorrect 闪烁而重置不稳计时器
+        const POSE_ERROR_TOLERANCE = 1000; // 1秒容错
+        const isPoseBasicallyCorrect = isPoseCorrect || (Date.now() - state.lastPoseCorrectTime < POSE_ERROR_TOLERANCE);
+
+        const shouldCheckUnstable = inFrame && isPoseBasicallyCorrect && !isStable && !state.ignoreUnstable;
 
         if (shouldCheckUnstable) {
              if (!state.isUnstableCheckActive) {
