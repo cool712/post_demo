@@ -84,8 +84,13 @@ document.getElementById('btn-ignore-unstable').addEventListener('click', () => {
     state.isUnstableCheckActive = false;
     hideDialog('unstable');
     
-    // 如果是手持模式 (或者用户点击了忽略)，直接开始录制，跳过倒计时
-    _startMediaRecorder();
+    // 如果是手持模式 (isHandheld)，直接开始录制，跳过倒计时
+    if (state.isHandheld) {
+        _startMediaRecorder();
+    } else {
+        // 如果是支架模式，还是弹出确认对话框，让用户有准备时间
+        showDialog('confirm-ready');
+    }
 });
 
 document.getElementById('btn-confirm-ready').addEventListener('click', () => {
