@@ -91,9 +91,8 @@ document.getElementById('btn-ignore-unstable').addEventListener('click', () => {
 document.getElementById('btn-confirm-ready').addEventListener('click', () => {
     hideDialog('confirm-ready');
     
-    // 用户确认准备好了，直接开始倒计时
-    state.autoRecordState = 'COUNTDOWN';
-    state.countdownStartTime = Date.now();
+    // 用户确认准备好了，直接开始录制，跳过倒计时
+    _startMediaRecorder();
     
     // 强制跳过静止检测
     state.ignoreUnstable = true;
