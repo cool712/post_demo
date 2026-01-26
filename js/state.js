@@ -38,5 +38,5 @@ export const CONSTANTS = {
     STATIC_CHECK_POINTS: [11, 12, 23, 24, 25, 26],
     MOVEMENT_THRESHOLD: 0.002, // 调高灵敏度（原0.005），更微小的晃动也会被检测出来
     VISIBILITY_THRESHOLD: 0.5,
-    UNSTABLE_TIMEOUT: 2000 // 2 seconds
+    UNSTABLE_TIMEOUT: 1000 // 2 seconds -> 1 second
 };
