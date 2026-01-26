@@ -84,12 +84,8 @@ document.getElementById('btn-ignore-unstable').addEventListener('click', () => {
     state.isUnstableCheckActive = false;
     hideDialog('unstable');
     
-    // 如果是手持模式 (或者用户点击了忽略)，直接开始倒计时/录制
-    // 原逻辑是弹出 confirm-ready
-    // 新逻辑：跳过 confirm-ready，直接进入 COUNTDOWN
-    
-    state.autoRecordState = 'COUNTDOWN';
-    state.countdownStartTime = Date.now();
+    // 如果是手持模式 (或者用户点击了忽略)，直接开始录制，跳过倒计时
+    _startMediaRecorder();
 });
 
 document.getElementById('btn-confirm-ready').addEventListener('click', () => {
