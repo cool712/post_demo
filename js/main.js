@@ -286,30 +286,22 @@ function processAndDraw(lm) {
             statusText = "准备就绪";
         }
         
-        // 统一的不稳/未准备好检测逻辑
-        if (inFrame && !isReady && !state.ignoreUnstable) {
+        // 只有当姿势正确但身体晃动时，才触发忽略弹框
+        // 如果姿势不正确，应优先提示用户调整姿势，而不是弹出忽略晃动的提示
+        const shouldCheckUnstable = inFrame && isPoseCorrect && !isStable && !state.ignoreUnstable;
+
+        if (shouldCheckUnstable) {
              if (!state.isUnstableCheckActive) {
                 state.isUnstableCheckActive = true;
                 state.unstableStartTime = Date.now();
             } else {
                 const unstableDuration = Date.now() - state.unstableStartTime;
                 if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
-                    // 如果是手持状态，或者只是普通的静止检测超时
-                    // 用户要求：如果是手持的情况下就弹出忽略弹框
-                    // 现在的逻辑是超时就弹出 dialog-unstable，且该对话框有忽略按钮
-                    // 修改后的按钮逻辑已经支持"直接开始"
-                    // 这里只需要确保对话框正常弹出即可
-                    // 也可以根据 isHandheld 动态修改对话框的文本？(可选)
                     showDialog('unstable');
                 }
             }
         } else {
-            // 如果 Ready 了，或者不在框内，或者已经忽略了，就重置计时器
-            // 注意：如果用户已经在 COUNTDOWN 状态，我们不应该重置这个逻辑，
-            // 但这里是 processAndDraw，每帧都跑。如果 isReady，当然不需要检测不稳。
-            if (isReady || !inFrame) {
-                 state.isUnstableCheckActive = false;
-            }
+            state.isUnstableCheckActive = false;
         }
         
         // Check already handled above
