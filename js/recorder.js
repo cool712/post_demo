@@ -12,16 +12,14 @@ function initRecordingCanvas() {
         state.recordingCtx = state.recordingCanvas.getContext('2d', { alpha: false });
     }
 
-    const { canvas } = state;
+    const { canvas, currentDeviceRotation } = state;
+    const isLandscape = Math.abs(currentDeviceRotation) === 90;
     
-    // 强制录制画布始终为竖屏比例 (Height > Width)
-    // 这样无论横着录还是竖着录，生成的视频文件都是竖屏的，方便在 App 播放
-    if (canvas.width > canvas.height) {
-        // 如果当前源是横屏，则交换宽高作为录制尺寸
+    // 如果横屏，交换宽高，使录制画布保持竖屏比例
+    if (isLandscape) {
         state.recordingCanvas.width = canvas.height;
         state.recordingCanvas.height = canvas.width;
     } else {
-        // 如果当前源是竖屏，直接使用
         state.recordingCanvas.width = canvas.width;
         state.recordingCanvas.height = canvas.height;
     }
@@ -60,30 +58,21 @@ export function updateRecordingCanvas() {
         if (window.orientation === -90) deviceRot = 90;
     }
 
-    // 如果源是横屏 (W > H)，但录制目标是竖屏 (W < H)，说明必须旋转
-    const isDestPortrait = destW < destH;
-    
-    if (isDestPortrait) {
-        // 目标是竖屏，源是横屏，需要旋转90度或-90度
-        if (deviceRot === 90) { // Home键在左，需顺时针转90度扶正
-            rotation = -Math.PI / 2;
-        } else if (deviceRot === -90) { // Home键在右，需逆时针转90度扶正
-            rotation = Math.PI / 2;
-        } else if (deviceRot === 180) {
-            rotation = Math.PI;
-        } else {
-            // deviceRot === 0，默认情况，无需额外旋转，但因为源是横屏，可能需要处理？
-            // 实际上如果 srcW > srcH 且 destW < destH，我们必须旋转才能填满
-            // 但如果用户是竖着拿手机，源通常是竖屏 (srcW < srcH)，这里进不来
-            // 如果用户横着拿，源是横屏，这里会根据 deviceRot 旋转
-            rotation = 0;
-        }
+    if (deviceRot === 90) {
+        // 手机左横屏 (Home键在右)，画面是横的
+        // 录制画布是竖的。
+        // 我们需要把画面逆时针转90度 (因为预览是横的，要想变竖，得转)
+        // 实际上：Sensor=90. CSS transform rotate(90).
+        // 尝试：-90度
+        rotation = -Math.PI / 2;
+    } else if (deviceRot === -90) {
+        // 手机右横屏 (Home键在左)
+        rotation = Math.PI / 2;
+    } else if (deviceRot === 180) {
+        rotation = Math.PI;
     } else {
-         // 目标是横屏（如果 initRecordingCanvas 逻辑变了，或者我们在桌面端）
-         if (deviceRot === 0) rotation = -Math.PI / 2;
-         else if (deviceRot === 180) rotation = Math.PI / 2;
-         else if (deviceRot === 90) rotation = 0;
-         else if (deviceRot === -90) rotation = Math.PI;
+        // 0 度，竖屏
+        rotation = 0;
     }
 
     recordingCtx.rotate(rotation);
