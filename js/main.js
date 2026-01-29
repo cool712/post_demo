@@ -118,11 +118,27 @@ async function startCamera() {
             video: {
                 facingMode: state.facingMode,
                 width: { ideal: 1280 },
-                height: { ideal: 720 },
-                advanced: [{ zoom: 2.0 }]
+                height: { ideal: 720 }
             }
         });
         state.video.srcObject = stream;
+        /* ========= 🔧 华为 2× 焦距兜底处理 ========= */
+const videoTrack = stream.getVideoTracks()[0];
+const capabilities = videoTrack.getCapabilities?.();
+
+console.log('[Camera Capabilities]', capabilities);
+
+// 1️⃣ 尝试强制 zoom = 1
+if (capabilities?.zoom) {
+  try {
+    await videoTrack.applyConstraints({
+      advanced: [{ zoom: 2 }]
+    });
+    console.log('✅ zoom 强制为 1x');
+  } catch (e) {
+    console.warn('❌ zoom 约束失败', e);
+  }
+}
         return new Promise(resolve => {
             state.video.onloadedmetadata = () => {
                 state.video.play();
