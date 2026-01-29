@@ -118,7 +118,8 @@ async function startCamera() {
             video: {
                 facingMode: state.facingMode,
                 width: { ideal: 1280 },
-                height: { ideal: 720 }
+                height: { ideal: 720 },
+                advanced: [{ zoom: 2.0 }]
             }
         });
         state.video.srcObject = stream;
