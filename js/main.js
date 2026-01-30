@@ -114,11 +114,35 @@ async function startCamera() {
     state.video.style.transform = state.facingMode === "user" ? "scaleX(-1)" : "none";
 
     try {
+        // 新增
+        // 2. 先请求一次权限，确保 enumerateDevices 能拿到 label
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        tempStream.getTracks().forEach(t => t.stop()); // 立即释放
+
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        console.log("检测到所有摄像头:", videoDevices);
+
+        // 3. 选镜逻辑：寻找主摄或广角
+        let targetDevice = videoDevices.find(d => {
+            const label = d.label.toLowerCase();
+            // 增加 'back 0' 和 'camera 0' 的匹配，这是国内安卓常见的命名
+            return label.includes('ultra') || label.includes('wide') || label.includes('0') || label.includes('back');
+        });
+
+        // 4. 排除长焦 (Tele)
+        if (!targetDevice) {
+            targetDevice = videoDevices.find(d => !d.label.toLowerCase().includes('tele'));
+        }
+
+        const finalDeviceId = targetDevice ? targetDevice.deviceId : null;
+        // 以上为新增
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
+                deviceId: finalDeviceId ? { exact: finalDeviceId } : undefined,
                 facingMode: state.facingMode,
-                width: { ideal: 960 },
-                height: { ideal: 720 },
+                width: { ideal: 1280 },
+                height: { ideal: 768 },
                 resizeMode: "none"
             }
         });
