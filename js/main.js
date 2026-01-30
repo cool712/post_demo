@@ -115,27 +115,31 @@ async function startCamera() {
 
     try {
         // 新增
-        // 2. 先请求一次权限，确保 enumerateDevices 能拿到 label
+        // 1. 获取权限并刷新标签
         const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
         const devices = await navigator.mediaDevices.enumerateDevices();
-        tempStream.getTracks().forEach(t => t.stop()); // 立即释放
+        tempStream.getTracks().forEach(t => t.stop());
 
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
-        console.log("检测到所有摄像头:", videoDevices);
+        console.log("设备列表明细:", videoDevices);
 
-        // 3. 选镜逻辑：寻找主摄或广角
-        let targetDevice = videoDevices.find(d => {
-            const label = d.label.toLowerCase();
-            // 增加 'back 0' 和 'camera 0' 的匹配，这是国内安卓常见的命名
-            return label.includes('ultra') || label.includes('wide') || label.includes('0') || label.includes('back');
-        });
-
-        // 4. 排除长焦 (Tele)
-        if (!targetDevice) {
-            targetDevice = videoDevices.find(d => !d.label.toLowerCase().includes('tele'));
+        // 2. 智能选镜：优先匹配后置主摄
+        let targetDevice = null;
+        if (state.facingMode === "environment") {
+            // 华为策略：寻找 label 包含 "back" 且包含 "0" 的，通常这才是真正的 1.0x 主摄
+            targetDevice = videoDevices.find(d => {
+                const l = d.label.toLowerCase();
+                return l.includes('back') && l.includes('0');
+            }) || videoDevices.find(d => d.label.toLowerCase().includes('back'));
+        } else {
+            targetDevice = videoDevices.find(d => d.label.toLowerCase().includes('front'));
         }
 
+        // 3. 确定最终 ID 和 镜像状态
         const finalDeviceId = targetDevice ? targetDevice.deviceId : null;
+        
+        // 【关键】修正镜像判定：只要是后置，哪怕驱动报错，我们也强制不镜像
+        state.isMirror = (state.facingMode === "user");
         // 以上为新增
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -150,9 +154,10 @@ async function startCamera() {
         // 打印摄像头信息，不影响
         const videoTrack = stream.getVideoTracks()[0];
 const capabilities = videoTrack.getCapabilities?.();
-
+console.log('当前激活镜头:', videoTrack.label);
 console.log('[Camera Capabilities]', capabilities);
- 
+ // 4. 应用 UI 镜像 新增
+        state.video.style.transform = state.isMirror ? "scaleX(-1)" : "none";
         return new Promise(resolve => {
             state.video.onloadedmetadata = () => {
                 state.video.play();
