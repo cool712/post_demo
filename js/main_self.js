@@ -13,6 +13,7 @@ import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRec
 /* ---------- 自拍模式初始化 ---------- */
 state.facingMode = "user";
 state.isHandheld = false; // 自拍模式禁用手持检测
+state.autoRecordState = 'IDLE'; // 默认开启自动检测逻辑
 
 /* ---------- DOM 初始化 ---------- */
 state.video = document.getElementById("video");
