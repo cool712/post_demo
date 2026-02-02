@@ -10,11 +10,11 @@ import { checkBodyInFrame } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
 import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
-/* ---------- Self Mode Init ---------- */
+/* ---------- 自拍模式初始化 ---------- */
 state.facingMode = "user";
-state.isHandheld = false; // Disable handheld detection for self mode
+state.isHandheld = false; // 自拍模式禁用手持检测
 
-/* ---------- DOM Initialization ---------- */
+/* ---------- DOM 初始化 ---------- */
 state.video = document.getElementById("video");
 state.canvas = document.getElementById("canvas");
 state.ctx = state.canvas.getContext("2d", { alpha: true });
@@ -23,8 +23,8 @@ let dynamicScale = 0.5;
 let frameCount = 0;
 let lastFpsCheck = 0;
 
-/* ---------- Event Listeners ---------- */
-// No devicemotion listener for Self Mode
+/* ---------- 事件监听器 ---------- */
+// 自拍模式不需要 devicemotion 监听器
 
 window.addEventListener('deviceorientation', (event) => {
     const gamma = event.gamma;
@@ -50,10 +50,10 @@ window.addEventListener('deviceorientation', (event) => {
     try { updateAllDialogsRotation(); } catch(e){}
 });
 
-/* ---------- Button Listeners ---------- */
-// No dialogs in self mode
+/* ---------- 按钮监听器 ---------- */
+// 自拍模式没有弹窗
 
-/* ---------- Camera ---------- */
+/* ---------- 摄像头 ---------- */
 async function startCamera() {
     if (state.video.srcObject) state.video.srcObject.getTracks().forEach(t => t.stop());
     
@@ -83,7 +83,7 @@ async function startCamera() {
         // 3. 确定最终 ID 和 镜像状态
         const finalDeviceId = targetDevice ? targetDevice.deviceId : null;
         
-        // 【关键】修正镜像判定：只要是后置，哪怕驱动报错，我们也强制不镜像
+
         state.isMirror = (state.facingMode === "user");
         
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -125,7 +125,7 @@ window.toggleCamera = async () => {
     return state.facingMode;
 };
 
-/* ---------- AI ---------- */
+/* ---------- AI 模型 ---------- */
 async function initAI() {
     setTimeout(async () => {
         try {
@@ -147,7 +147,7 @@ async function initAI() {
     }, 1000);
 }
 
-/* ---------- Loop ---------- */
+/* ---------- 循环 ---------- */
 function loop(ts) {
     requestAnimationFrame(loop);
     try { updateAllDialogsRotation(); } catch(e){}
@@ -227,26 +227,26 @@ function processAndDraw(lm) {
     if (!state.isRecording && (state.autoRecordState === 'IDLE' || state.autoRecordState === 'COUNTDOWN')) {
         
         const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
-        // checkIsStatic and isPoseCorrect removed as requested
+        // 应要求移除了 checkIsStatic 和 isPoseCorrect
 
-        // New Stability Check Logic
-        // Define key joints to monitor: Elbows, Shoulders, Hips, Knees
+        // 新的稳定性检测逻辑
+        // 定义需要监测的关键关节：肘部、肩部、髋部、膝部
         const keyJoints = [
-            [11, 13, 15], [12, 14, 16], // Elbows
-            [13, 11, 23], [14, 12, 24], // Shoulders
-            [11, 23, 25], [12, 24, 26], // Hips
-            [23, 25, 27], [24, 26, 28]  // Knees
+            [11, 13, 15], [12, 14, 16], // 肘部
+            [13, 11, 23], [14, 12, 24], // 肩部
+            [11, 23, 25], [12, 24, 26], // 髋部
+            [23, 25, 27], [24, 26, 28]  // 膝部
         ];
 
         const currentAngles = keyJoints.map(indices => calcAngle(lm[indices[0]], lm[indices[1]], lm[indices[2]]));
         let isStable = false;
 
         if (!state.referenceAngles || state.referenceAngles.length !== currentAngles.length) {
-            // Initialize
+            // 初始化
             state.referenceAngles = currentAngles;
             state.stableStartTimestamp = Date.now();
         } else {
-            // Check fluctuation
+            // 检查波动
             let maxFluctuation = 0;
             for (let i = 0; i < currentAngles.length; i++) {
                 const diff = Math.abs(currentAngles[i] - state.referenceAngles[i]);
@@ -254,13 +254,13 @@ function processAndDraw(lm) {
             }
 
             if (maxFluctuation <= 5) {
-                // Stable
+                // 稳定
                 const duration = Date.now() - state.stableStartTimestamp;
                 if (duration > CONSTANTS.STABILITY_DURATION) {
                     isStable = true;
                 }
             } else {
-                // Unstable - Reset
+                // 不稳定 - 重置
                 state.referenceAngles = currentAngles;
                 state.stableStartTimestamp = Date.now();
             }
@@ -273,35 +273,35 @@ function processAndDraw(lm) {
 
         if (!inFrame) {
             statusText = frameMsg;
-            // Reset stability if out of frame
+            // 如果离开画面，重置稳定性
             state.referenceAngles = null;
         } else if (!isStable) {
             statusText = `请保持姿势${CONSTANTS.STABILITY_DURATION / 1000}秒`;
         } else {
-            // In Frame AND Stable for > 3s
+            // 在画面内且稳定超过 3 秒
             isReady = true;
             statusText = "准备就绪";
         }
         
         state.lastFrameLandmarks = lm;
 
-        // 1. Trigger Logic (IDLE -> COUNTDOWN)
+        // 1. 触发逻辑 (空闲 -> 倒计时)
         if (state.autoRecordState === 'IDLE' && isReady) {
              state.autoRecordState = 'COUNTDOWN';
              state.countdownStartTime = Date.now();
         }
 
-        // 2. Countdown Logic (COUNTDOWN -> RECORDING)
-        // Must maintain stability (same as trigger logic). Any instability interrupts.
+        // 2. 倒计时逻辑 (倒计时 -> 录制)
+        // 必须保持稳定（与触发逻辑相同）。任何不稳定都会中断。
         if (state.autoRecordState === 'COUNTDOWN') {
-             if (!isReady) { // isReady implies (inFrame && isStable)
-                 // Interrupt
+             if (!isReady) { // isReady 意味着 (在画面内 && 稳定)
+                 // 中断
                  console.log("倒计时中断：不稳定或目标丢失");
                  state.autoRecordState = 'IDLE';
-                 // If unstable, referenceAngles was already reset above.
+                 // 如果不稳定，referenceAngles 已经在上面重置了。
                  if (!inFrame) state.referenceAngles = null;
              } else {
-                 // Continue
+                 // 继续
                  const elapsed = Date.now() - state.countdownStartTime;
                  const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
                  
@@ -316,7 +316,7 @@ function processAndDraw(lm) {
                  }
              }
         } else {
-            // IDLE State
+            // 空闲状态
              state.autoRecordState = 'IDLE';
         }
 
@@ -327,7 +327,7 @@ function processAndDraw(lm) {
             hideDynamicIsland();
         }
 
-        // Only show status text if NOT in countdown (to avoid flickering "Not Ready" during countdown)
+        // 仅在非倒计时状态下显示状态文本（以避免倒计时期间闪烁“未准备好”）
         if (state.autoRecordState !== 'COUNTDOWN' && !isReady && statusText && !state.isRecording) {
             showToast(statusText);
         } else {
@@ -347,12 +347,12 @@ function processAndDraw(lm) {
     drawSkeleton(lm);
 }
 
-/* ---------- Exports to Window ---------- */
+/* ---------- 导出到 Window ---------- */
 window.startRecord = startRecord;
 window.pauseRecord = pauseRecord;
 window.stopAndUpload = stopAndUpload;
 
-/* ---------- Init ---------- */
+/* ---------- 初始化 ---------- */
 async function main() {
     await startCamera();
     requestAnimationFrame(loop);

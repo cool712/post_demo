@@ -8,11 +8,11 @@ import { showDynamicIsland, hideDynamicIsland, updateDynamicIslandRotation } fro
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
 import { pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
-/* ---------- Partner Mode Init ---------- */
+/* ---------- 拍人模式初始化 ---------- */
 state.facingMode = "environment";
-state.isHandheld = false; // Disable handheld detection for partner mode
+state.isHandheld = false; // 拍人模式禁用手持检测
 
-/* ---------- DOM Initialization ---------- */
+/* ---------- DOM 初始化 ---------- */
 state.video = document.getElementById("video");
 state.canvas = document.getElementById("canvas");
 state.ctx = state.canvas.getContext("2d", { alpha: true });
@@ -21,8 +21,8 @@ let dynamicScale = 0.5;
 let frameCount = 0;
 let lastFpsCheck = 0;
 
-/* ---------- Event Listeners ---------- */
-// No devicemotion listener for Partner Mode as requested
+/* ---------- 事件监听器 ---------- */
+// 应要求，拍人模式不需要 devicemotion 监听器
 
 window.addEventListener('deviceorientation', (event) => {
     const gamma = event.gamma;
@@ -43,24 +43,24 @@ window.addEventListener('deviceorientation', (event) => {
             state.currentDeviceRotation = 0;
         }
     }
-    // updateToastRotation(); // REMOVED
+    // updateToastRotation(); // 已移除
     try { updateDynamicIslandRotation(); } catch(e){}
     try { updateAllDialogsRotation(); } catch(e){}
 });
 
-/* ---------- Button Listeners ---------- */
-// No dialogs, so no button listeners needed.
-// Exposed method for external trigger (Replaces standard startRecord behavior)
+/* ---------- 按钮监听器 ---------- */
+// 没有弹窗，所以不需要按钮监听器。
+// 暴露给外部触发的方法（替换标准的 startRecord 行为）
 window.startRecord = () => {
     if (state.isRecording || state.autoRecordState === 'COUNTDOWN') return;
 
-    // Start Countdown
+    // 开始倒计时
     state.autoRecordState = 'COUNTDOWN';
     state.countdownStartTime = Date.now();
-    console.log("Countdown started via manual trigger (startRecord)");
+    console.log("通过手动触发开始倒计时 (startRecord)");
 };
 
-/* ---------- Camera ---------- */
+/* ---------- 摄像头 ---------- */
 async function startCamera() {
     if (state.video.srcObject) state.video.srcObject.getTracks().forEach(t => t.stop());
     
@@ -132,7 +132,7 @@ window.toggleCamera = async () => {
     return state.facingMode;
 };
 
-/* ---------- AI ---------- */
+/* ---------- AI 模型 ---------- */
 async function initAI() {
     setTimeout(async () => {
         try {
@@ -154,10 +154,10 @@ async function initAI() {
     }, 1000);
 }
 
-/* ---------- Loop ---------- */
+/* ---------- 循环 ---------- */
 function loop(ts) {
     requestAnimationFrame(loop);
-    // try { updateAllDialogsRotation(); } catch(e){} // REMOVED
+    // try { updateAllDialogsRotation(); } catch(e){} // 已移除
 
     if (!state.running) return;
 
@@ -213,7 +213,7 @@ function loop(ts) {
             } else {
                 hideDynamicIsland();
                 if (!state.isRecording && state.autoRecordState !== 'DISABLED') {
-                    // showToast("请站在检测框内"); // REMOVED
+                    // showToast("请站在检测框内"); // 已移除
                     if (state.autoRecordState === 'COUNTDOWN') {
                         state.autoRecordState = 'IDLE';
                         console.log("倒计时中断：失去目标");
@@ -233,16 +233,7 @@ function loop(ts) {
 
 function processAndDraw(lm) {
     if (!state.isRecording && (state.autoRecordState === 'IDLE' || state.autoRecordState === 'COUNTDOWN')) {
-        
-        // Pose checks REMOVED as requested.
-        // const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
-        // const leftLegAngle = calcAngle(lm[23], lm[25], lm[27]);
-        // const rightLegAngle = calcAngle(lm[24], lm[26], lm[28]);
-        // const isPoseCorrect = leftLegAngle > 170 && rightLegAngle > 170;
-
-        // Static Check REMOVED - Always stable
-        // const isStable = true;
-        
+                
         state.lastFrameLandmarks = lm;
 
         if (state.autoRecordState === 'COUNTDOWN') {
@@ -269,12 +260,12 @@ function processAndDraw(lm) {
     drawSkeleton(lm);
 }
 
-/* ---------- Exports to Window ---------- */
-// window.startRecord = startRecord; // Overridden by manual trigger above
+/* ---------- 导出到 Window ---------- */
+// window.startRecord = startRecord; // 被上面的手动触发覆盖
 window.pauseRecord = pauseRecord;
 window.stopAndUpload = stopAndUpload;
 
-/* ---------- Init ---------- */
+/* ---------- 初始化 ---------- */
 async function main() {
     await startCamera();
     requestAnimationFrame(loop);
