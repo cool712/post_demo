@@ -4,7 +4,7 @@ import {
 } from "/mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
-// import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog, updateAllDialogsRotation } from './ui.js'; // REMOVED
+import { showDynamicIsland, hideDynamicIsland, updateDynamicIslandRotation } from './ui.js';
 import { calcAngle, getVisibleRect } from './utils.js';
 import { checkBodyInFrame } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
@@ -173,9 +173,10 @@ function loop(ts) {
     if (!state.poseLandmarker) {
         state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
         if (!state.isRecording) {
-              state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
+            state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
             drawSafeZone(ts);
-                showDynamicIsland("AI模型加载中");
+            
+            showDynamicIsland("AI模型加载中");
         }
         return;
     }
@@ -209,10 +210,10 @@ function loop(ts) {
             if (result.landmarks && result.landmarks.length > 0) {
                 processAndDraw(result.landmarks[0]);
                 if (state.autoRecordState === 'DISABLED') {
-                    // hideDynamicIsland(); // REMOVED
+                    hideDynamicIsland();
                 }
             } else {
-                // hideDynamicIsland(); // REMOVED
+                hideDynamicIsland();
                 if (!state.isRecording && state.autoRecordState !== 'DISABLED') {
                     // showToast("请站在检测框内"); // REMOVED
                     if (state.autoRecordState === 'COUNTDOWN') {
