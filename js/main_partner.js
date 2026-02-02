@@ -4,15 +4,15 @@ import {
 } from "/mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
-import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog, updateAllDialogsRotation } from './ui.js';
+// import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog, updateAllDialogsRotation } from './ui.js'; // REMOVED
 import { calcAngle, getVisibleRect } from './utils.js';
-import { checkBodyInFrame, checkIsStatic } from './pose-logic.js';
+import { checkBodyInFrame } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
 import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
 /* ---------- Partner Mode Init ---------- */
 state.facingMode = "environment";
-// state.isHandheld defaults to true in state.js, but we will let devicemotion update it.
+state.isHandheld = false; // Disable handheld detection for partner mode
 
 /* ---------- DOM Initialization ---------- */
 state.video = document.getElementById("video");
@@ -24,38 +24,7 @@ let frameCount = 0;
 let lastFpsCheck = 0;
 
 /* ---------- Event Listeners ---------- */
-// Handheld Detection
-const motionBuffer = [];
-const MOTION_SAMPLE_SIZE = 20;
-
-window.addEventListener('devicemotion', (event) => {
-    const acc = event.acceleration;
-    if (!acc) return;
-
-    const x = acc.x || 0;
-    const y = acc.y || 0;
-    const z = acc.z || 0;
-    const magnitude = Math.sqrt(x*x + y*y + z*z);
-
-    motionBuffer.push(magnitude);
-    if (motionBuffer.length > MOTION_SAMPLE_SIZE) {
-        motionBuffer.shift();
-        
-        // Analyze
-        const sum = motionBuffer.reduce((a, b) => a + b, 0);
-        const average = sum / motionBuffer.length;
-        
-        state.motionScore = average;
-        
-        // Simple logic: if consistent motion > threshold, likely handheld or moving
-        // < 0.05 is likely stand
-        if (average < 0.05) {
-            state.isHandheld = false;
-        } else {
-            state.isHandheld = true;
-        }
-    }
-});
+// No devicemotion listener for Partner Mode as requested
 
 window.addEventListener('deviceorientation', (event) => {
     const gamma = event.gamma;
@@ -82,33 +51,16 @@ window.addEventListener('deviceorientation', (event) => {
 });
 
 /* ---------- Button Listeners ---------- */
-document.getElementById('btn-ignore-unstable').addEventListener('click', () => {
-    state.ignoreUnstable = true;
-    state.isUnstableCheckActive = false;
-    hideDialog('unstable');
-    
-    // 统一弹出确认对话框，让用户有准备时间
-    showDialog('confirm-ready');
-});
+// No dialogs, so no button listeners needed.
+// Exposed method for external trigger (Replaces standard startRecord behavior)
+window.startRecord = () => {
+    if (state.isRecording || state.autoRecordState === 'COUNTDOWN') return;
 
-document.getElementById('btn-confirm-ready').addEventListener('click', () => {
-    hideDialog('confirm-ready');
-    
-    // 用户确认准备好了，直接开始录制，跳过倒计时
-    _startMediaRecorder();
-    
-    // 强制跳过静止检测
-    state.ignoreUnstable = true;
-});
-
-document.getElementById('btn-cancel-ready').addEventListener('click', () => {
-    hideDialog('confirm-ready');
-    
-    // 取消准备，重新开始检测
-    state.ignoreUnstable = false;
-    state.isUnstableCheckActive = false;
-    state.unstableStartTime = 0;
-});
+    // Start Countdown
+    state.autoRecordState = 'COUNTDOWN';
+    state.countdownStartTime = Date.now();
+    console.log("Countdown started via manual trigger (startRecord)");
+};
 
 /* ---------- Camera ---------- */
 async function startCamera() {
@@ -207,7 +159,7 @@ async function initAI() {
 /* ---------- Loop ---------- */
 function loop(ts) {
     requestAnimationFrame(loop);
-    try { updateAllDialogsRotation(); } catch(e){}
+    // try { updateAllDialogsRotation(); } catch(e){} // REMOVED
 
     if (!state.running) return;
 
@@ -221,9 +173,8 @@ function loop(ts) {
     if (!state.poseLandmarker) {
         state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
         if (!state.isRecording) {
-            state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
-            drawSafeZone(ts);
-            showDynamicIsland("AI模型加载中");
+            state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };            drawSafeZone(ts);
+            // showDynamicIsland("AI模型加载中"); // REMOVED
         }
         return;
     }
@@ -257,12 +208,12 @@ function loop(ts) {
             if (result.landmarks && result.landmarks.length > 0) {
                 processAndDraw(result.landmarks[0]);
                 if (state.autoRecordState === 'DISABLED') {
-                    hideDynamicIsland();
+                    // hideDynamicIsland(); // REMOVED
                 }
             } else {
-                hideDynamicIsland();
+                // hideDynamicIsland(); // REMOVED
                 if (!state.isRecording && state.autoRecordState !== 'DISABLED') {
-                    showToast("请站在检测框内");
+                    // showToast("请站在检测框内"); // REMOVED
                     if (state.autoRecordState === 'COUNTDOWN') {
                         state.autoRecordState = 'IDLE';
                         console.log("倒计时中断：失去目标");
@@ -283,134 +234,26 @@ function loop(ts) {
 function processAndDraw(lm) {
     if (!state.isRecording && (state.autoRecordState === 'IDLE' || state.autoRecordState === 'COUNTDOWN')) {
         
-        const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
-        const { isStatic, msg: staticMsg } = checkIsStatic(lm);
+        // Pose checks REMOVED as requested.
+        // const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
+        // const leftLegAngle = calcAngle(lm[23], lm[25], lm[27]);
+        // const rightLegAngle = calcAngle(lm[24], lm[26], lm[28]);
+        // const isPoseCorrect = leftLegAngle > 170 && rightLegAngle > 170;
 
-        const leftLegAngle = calcAngle(lm[23], lm[25], lm[27]);
-        const rightLegAngle = calcAngle(lm[24], lm[26], lm[28]);
-        const isPoseCorrect = leftLegAngle > 170 && rightLegAngle > 170;
-
-        // 更新最后一次姿势正确的时间
-        if (isPoseCorrect) {
-            state.lastPoseCorrectTime = Date.now();
-        }
-
-        // Update Static Frames Counter
-        if (isStatic) {
-            state.consecutiveStaticFrames = (state.consecutiveStaticFrames || 0) + 1;
-        } else {
-            state.consecutiveStaticFrames = 0;
-        }
+        // Static Check REMOVED - Always stable
+        // const isStable = true;
         
-        // Define "Stable" as having been static for a few consecutive frames
-        const isStable = state.consecutiveStaticFrames > 5;
-
-        let statusText = "";
-        let isReady = false;
-        let dynamicIslandMsg = "";
-        let shouldShowDynamicIsland = false;
-
-        if (!inFrame) {
-            statusText = frameMsg;
-            state.isUnstableCheckActive = false; // 不在框内，重置不稳检测
-        } else if (!isPoseCorrect) {
-            statusText = "请直立身体";
-        } else if (!isStable && !state.ignoreUnstable) {
-            statusText = "请保持不动";
-        } else {
-            // In Frame, Pose Correct, and (Stable OR IgnoreUnstable)
-            isReady = true;
-            statusText = "准备就绪";
-        }
-        
-        const POSE_ERROR_TOLERANCE = 1000; // 1秒容错
-        const isPoseBasicallyCorrect = isPoseCorrect || (Date.now() - state.lastPoseCorrectTime < POSE_ERROR_TOLERANCE);
-
-        // Partner Mode: Check state.isHandheld.
-        // If it is handheld AND unstable, show the dialog.
-        const shouldCheckUnstable = inFrame && isPoseBasicallyCorrect && !isStable && !state.ignoreUnstable && state.isHandheld;
-
-        if (shouldCheckUnstable) {
-             if (!state.isUnstableCheckActive) {
-                state.isUnstableCheckActive = true;
-                state.unstableStartTime = Date.now();
-            } else {
-                const unstableDuration = Date.now() - state.unstableStartTime;
-                if (unstableDuration > CONSTANTS.UNSTABLE_TIMEOUT) {
-                    showDialog('unstable');
-                }
-            }
-        } else {
-            state.isUnstableCheckActive = false;
-        }
-        
-        // 如果对话框显示中，不更新 Toast 和 Dynamic Island，避免冲突
-        const isDialogVisible = document.getElementById('dialog-unstable').style.display !== 'none' || 
-                                document.getElementById('dialog-confirm-ready').style.display !== 'none';
-
-        if (isDialogVisible) {
-            state.lastFrameLandmarks = lm;
-            drawSkeleton(lm);
-            return; // 早期返回，不更新状态机
-        }
-
         state.lastFrameLandmarks = lm;
 
-        if (isReady) {
-            if (state.autoRecordState === 'IDLE') {
-                state.autoRecordState = 'COUNTDOWN';
-                state.countdownStartTime = Date.now();
-                shouldShowDynamicIsland = true;
-                dynamicIslandMsg = "保持不动";
-            } else if (state.autoRecordState === 'COUNTDOWN') {
-                const elapsed = Date.now() - state.countdownStartTime;
-                const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
+        if (state.autoRecordState === 'COUNTDOWN') {
+            const elapsed = Date.now() - state.countdownStartTime;
+            const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
 
-                shouldShowDynamicIsland = true;
-                dynamicIslandMsg = "保持不动";
+            drawCountdown(remaining);
 
-                drawCountdown(remaining);
-
-                if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
-                    _startMediaRecorder();
-                    shouldShowDynamicIsland = false; // 确保录制开始后不显示
-                }
+            if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
+                _startMediaRecorder();
             }
-        } else {
-            if (state.autoRecordState === 'COUNTDOWN') {
-                const shouldContinue = state.ignoreUnstable && inFrame;
-
-                if (shouldContinue) {
-                     // 继续倒计时
-                     const elapsed = Date.now() - state.countdownStartTime;
-                     const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
-                     shouldShowDynamicIsland = true;
-                     dynamicIslandMsg = "保持不动";
-                     drawCountdown(remaining);
-                     if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
-                         _startMediaRecorder();
-                         shouldShowDynamicIsland = false;
-                     }
-                } else {
-                    console.log("倒计时中断：条件不再满足");
-                    state.autoRecordState = 'IDLE';
-                }
-            } else {
-                state.autoRecordState = 'IDLE';
-            }
-        }
-
-
-        if (shouldShowDynamicIsland && !state.isRecording) {
-            showDynamicIsland(dynamicIslandMsg);
-        } else {
-            hideDynamicIsland();
-        }
-
-        if (!isReady && statusText && !state.isRecording) {
-            showToast(statusText);
-        } else {
-            hideToast();
         }
     } 
 
@@ -427,7 +270,7 @@ function processAndDraw(lm) {
 }
 
 /* ---------- Exports to Window ---------- */
-window.startRecord = startRecord;
+// window.startRecord = startRecord; // Overridden by manual trigger above
 window.pauseRecord = pauseRecord;
 window.stopAndUpload = stopAndUpload;
 
