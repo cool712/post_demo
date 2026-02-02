@@ -34,9 +34,10 @@ export const state = {
 
 export const CONSTANTS = {
     KEY_LANDMARKS: [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
-    COUNTDOWN_DURATION: 3000,
+    STABILITY_DURATION: 2000, // 保持姿势稳定的时间 3000毫秒 = 3秒
+    COUNTDOWN_DURATION: 3000, // 倒计时时间 3000毫秒 = 3秒
     STATIC_CHECK_POINTS: [11, 12, 23, 24, 25, 26],
     MOVEMENT_THRESHOLD: 0.002, // 调高灵敏度（原0.005），更微小的晃动也会被检测出来
     VISIBILITY_THRESHOLD: 0.5,
-    UNSTABLE_TIMEOUT: 1000 // 2 seconds -> 1 second
+    UNSTABLE_TIMEOUT: 1000 // 不稳定超时判定 1000毫秒 = 1秒
 };

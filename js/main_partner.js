@@ -5,10 +5,8 @@ import {
 
 import { state, CONSTANTS } from './state.js';
 import { showDynamicIsland, hideDynamicIsland, updateDynamicIslandRotation } from './ui.js';
-import { calcAngle, getVisibleRect } from './utils.js';
-import { checkBodyInFrame } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
-import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
+import { pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
 /* ---------- Partner Mode Init ---------- */
 state.facingMode = "environment";

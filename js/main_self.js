@@ -4,9 +4,9 @@ import {
 } from "/mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
-import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, showDialog, hideDialog, updateAllDialogsRotation } from './ui.js';
-import { calcAngle, getVisibleRect } from './utils.js';
-import { checkBodyInFrame, checkIsStatic } from './pose-logic.js';
+import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, updateAllDialogsRotation } from './ui.js';
+import { calcAngle } from './utils.js';
+import { checkBodyInFrame } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
 import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
@@ -256,7 +256,7 @@ function processAndDraw(lm) {
             if (maxFluctuation <= 5) {
                 // Stable
                 const duration = Date.now() - state.stableStartTimestamp;
-                if (duration > 3000) { // 3 seconds
+                if (duration > CONSTANTS.STABILITY_DURATION) {
                     isStable = true;
                 }
             } else {
@@ -276,7 +276,7 @@ function processAndDraw(lm) {
             // Reset stability if out of frame
             state.referenceAngles = null;
         } else if (!isStable) {
-            statusText = "请保持姿势3秒";
+            statusText = `请保持姿势${CONSTANTS.STABILITY_DURATION / 1000}秒`;
         } else {
             // In Frame AND Stable for > 3s
             isReady = true;
