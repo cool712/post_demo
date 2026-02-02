@@ -227,9 +227,6 @@ function processAndDraw(lm) {
     if (!state.isRecording && (state.autoRecordState === 'IDLE' || state.autoRecordState === 'COUNTDOWN')) {
         
         const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
-        // 应要求移除了 checkIsStatic 和 isPoseCorrect
-
-        // 新的稳定性检测逻辑
         // 定义需要监测的关键关节：肘部、肩部、髋部、膝部
         const keyJoints = [
             [11, 13, 15], [12, 14, 16], // 肘部
