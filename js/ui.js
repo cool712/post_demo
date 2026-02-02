@@ -7,6 +7,7 @@ const dialogUnstable = document.getElementById("dialog-unstable");
 const dialogConfirmReady = document.getElementById("dialog-confirm-ready");
 
 export function showToast(msg) {
+    if (!statusToast) return;
     if (statusToast.textContent !== msg) {
         statusToast.textContent = msg;
     }
@@ -18,6 +19,7 @@ export function showToast(msg) {
 }
 
 export function hideToast() {
+    if (!statusToast) return;
     if (statusToast.classList.contains("show")) {
         statusToast.classList.remove("show");
         statusToast.classList.add("hide");
@@ -25,6 +27,7 @@ export function hideToast() {
 }
 
 export function showDynamicIsland(msg) {
+    if (!dynamicIsland || !dynamicIslandText) return;
     if (dynamicIslandText.textContent !== msg) {
         dynamicIslandText.textContent = msg;
     }
@@ -35,6 +38,7 @@ export function showDynamicIsland(msg) {
 }
 
 export function hideDynamicIsland() {
+    if (!dynamicIsland) return;
     if (dynamicIsland.classList.contains("show")) {
         dynamicIsland.classList.remove("show");
         // 即使隐藏也要更新位置，保证缩放动画在正确位置
@@ -43,6 +47,7 @@ export function hideDynamicIsland() {
 }
 
 export function updateDynamicIslandRotation() {
+    if (!dynamicIsland) return;
     const scale = dynamicIsland.classList.contains("show") ? 1 : 0;
     
     // 重置定位样式
@@ -79,6 +84,7 @@ export function updateDynamicIslandRotation() {
 }
 
 export function updateToastRotation() {
+    if (!statusToast) return;
     let transform = "translate(-50%, -50%)";
     const { currentDeviceRotation } = state;
     
@@ -101,19 +107,23 @@ export function updateToastRotation() {
 
 export function showDialog(type) {
     if (type === 'unstable') {
-        dialogUnstable.style.display = 'flex';
-        updateDialogRotation(dialogUnstable);
+        if (dialogUnstable) {
+            dialogUnstable.style.display = 'flex';
+            updateDialogRotation(dialogUnstable);
+        }
     } else if (type === 'confirm-ready') {
-        dialogConfirmReady.style.display = 'flex';
-        updateDialogRotation(dialogConfirmReady);
+        if (dialogConfirmReady) {
+            dialogConfirmReady.style.display = 'flex';
+            updateDialogRotation(dialogConfirmReady);
+        }
     }
 }
 
 export function hideDialog(type) {
     if (type === 'unstable') {
-        dialogUnstable.style.display = 'none';
+        if (dialogUnstable) dialogUnstable.style.display = 'none';
     } else if (type === 'confirm-ready') {
-        dialogConfirmReady.style.display = 'none';
+        if (dialogConfirmReady) dialogConfirmReady.style.display = 'none';
     }
 }
 
@@ -140,8 +150,6 @@ export function updateDialogRotation(dialogElement) {
 }
 
 export function updateAllDialogsRotation() {
-    const d1 = document.getElementById("dialog-unstable");
-    const d2 = document.getElementById("dialog-confirm-ready");
-    updateDialogRotation(d1);
-    updateDialogRotation(d2);
+    if (dialogUnstable) updateDialogRotation(dialogUnstable);
+    if (dialogConfirmReady) updateDialogRotation(dialogConfirmReady);
 }

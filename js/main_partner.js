@@ -174,7 +174,28 @@ function loop(ts) {
         state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
         if (!state.isRecording) {
             state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };            drawSafeZone(ts);
-            // showDynamicIsland("AI模型加载中"); // REMOVED
+            
+            // Draw Loading Text
+            const { ctx, canvas, currentDeviceRotation } = state;
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            
+            // Rotate based on device orientation
+            let rotation = 0;
+            if (currentDeviceRotation === 90) rotation = Math.PI / 2;
+            else if (currentDeviceRotation === -90) rotation = -Math.PI / 2;
+            else if (currentDeviceRotation === 180) rotation = Math.PI;
+            ctx.rotate(rotation);
+
+            ctx.fillStyle = "white";
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 4;
+            ctx.font = "bold 30px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.strokeText("AI模型加载中...", 0, 0);
+            ctx.fillText("AI模型加载中...", 0, 0);
+            ctx.restore();
         }
         return;
     }
