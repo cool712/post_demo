@@ -114,14 +114,50 @@ async function startCamera() {
     state.video.style.transform = state.facingMode === "user" ? "scaleX(-1)" : "none";
 
     try {
+        // 新增
+        // 1. 获取权限并刷新标签
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        tempStream.getTracks().forEach(t => t.stop());
+
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        console.log("设备列表明细:", videoDevices);
+
+        // 2. 智能选镜：优先匹配后置主摄
+        let targetDevice = null;
+        if (state.facingMode === "environment") {
+            // 华为策略：寻找 label 包含 "back" 且包含 "0" 的，通常这才是真正的 1.0x 主摄
+            targetDevice = videoDevices.find(d => {
+                const l = d.label.toLowerCase();
+                return l.includes('back') && l.includes('0');
+            }) || videoDevices.find(d => d.label.toLowerCase().includes('back'));
+        } else {
+            targetDevice = videoDevices.find(d => d.label.toLowerCase().includes('front'));
+        }
+
+        // 3. 确定最终 ID 和 镜像状态
+        const finalDeviceId = targetDevice ? targetDevice.deviceId : null;
+        
+        // 【关键】修正镜像判定：只要是后置，哪怕驱动报错，我们也强制不镜像
+        state.isMirror = (state.facingMode === "user");
+        // 以上为新增
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
+                deviceId: finalDeviceId ? { exact: finalDeviceId } : undefined,
                 facingMode: state.facingMode,
                 width: { ideal: 1280 },
-                height: { ideal: 720 }
+                height: { ideal: 768 },
+                resizeMode: "none"
             }
         });
         state.video.srcObject = stream;
+        // 打印摄像头信息，不影响
+        const videoTrack = stream.getVideoTracks()[0];
+const capabilities = videoTrack.getCapabilities?.();
+console.log('当前激活镜头:', videoTrack.label);
+console.log('[Camera Capabilities]', capabilities);
+ // 4. 应用 UI 镜像 新增
+        state.video.style.transform = state.isMirror ? "scaleX(-1)" : "none";
         return new Promise(resolve => {
             state.video.onloadedmetadata = () => {
                 state.video.play();

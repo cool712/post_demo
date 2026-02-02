@@ -214,28 +214,33 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
         const resData = await response.json();
         if (resData.code === 200) {
             const videoUrl = resData.data.url;
-            const analyzeRes = await fetch(analyzeUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    "log_id": logId,
-                    "video_url": videoUrl,
-                    "data_json": state.poseDataJson
-                })
-            });
-            const analyzeData = await analyzeRes.json();
-            if (analyzeData.code === 200) {
-                window.flutter_inappwebview.callHandler("onUploadComplete", {
-                    success: true,
-                    videoUrl: videoUrl,
-                    analyzeData: analyzeData.data
-                });
-            } else {
-                throw new Error(analyzeData.msg || "动作分析失败，请稍后重试");
-            }
+            // const analyzeRes = await fetch(analyzeUrl, {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //         "Authorization": `Bearer ${token}`
+            //     },
+            //     body: JSON.stringify({
+            //         "log_id": logId,
+            //         "video_url": videoUrl,
+            //         "data_json": state.poseDataJson
+            //     })
+            // });
+            // const analyzeData = await analyzeRes.json();
+            // if (analyzeData.code === 200) {
+            //     window.flutter_inappwebview.callHandler("onUploadComplete", {
+            //         success: true,
+            //         videoUrl: videoUrl,
+            //         analyzeData: analyzeData.data
+            //     });
+            // } else {
+            //     throw new Error(analyzeData.msg || "动作分析失败，请稍后重试");
+            // }
+            window.flutter_inappwebview.callHandler("onUploadComplete", {
+            success: true,
+            videoUrl: videoUrl,
+            analyzeData: state.poseDataJson
+        });
         } else {
             throw new Error(resData.msg || "上传视频失败");
         }
