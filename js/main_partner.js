@@ -45,7 +45,7 @@ window.addEventListener('deviceorientation', (event) => {
             state.currentDeviceRotation = 0;
         }
     }
-    updateToastRotation();
+    // updateToastRotation(); // REMOVED
     try { updateDynamicIslandRotation(); } catch(e){}
     try { updateAllDialogsRotation(); } catch(e){}
 });
