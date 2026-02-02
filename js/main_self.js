@@ -292,15 +292,16 @@ function processAndDraw(lm) {
         }
 
         // 2. Countdown Logic (COUNTDOWN -> RECORDING)
-        // Once started, only OUT OF FRAME interrupts it. Minor instability is ignored.
+        // Must maintain stability (same as trigger logic). Any instability interrupts.
         if (state.autoRecordState === 'COUNTDOWN') {
-             if (!inFrame) {
+             if (!isReady) { // isReady implies (inFrame && isStable)
                  // Interrupt
-                 console.log("倒计时中断：目标丢失");
+                 console.log("倒计时中断：不稳定或目标丢失");
                  state.autoRecordState = 'IDLE';
-                 state.referenceAngles = null; // Reset stability
+                 // If unstable, referenceAngles was already reset above.
+                 if (!inFrame) state.referenceAngles = null;
              } else {
-                 // Continue even if !isStable
+                 // Continue
                  const elapsed = Date.now() - state.countdownStartTime;
                  const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
                  
