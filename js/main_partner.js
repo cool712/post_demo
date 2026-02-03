@@ -252,6 +252,7 @@ function processAndDraw(lm) {
         state.poseDataJson[`frame_${state.currentRecordFrameIndex}`] = lm.map(p => [
             Math.round(p.x * 1000) / 1000,
             Math.round(p.y * 1000) / 1000,
+            Math.round(p.z * 1000) / 1000,
             Math.round(p.visibility * 100) / 100
         ]);
         state.currentRecordFrameIndex++;
