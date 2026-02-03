@@ -218,12 +218,12 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     try {
         const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
         // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
-        fetch(webhookUrl, {
-            method: "POST",
-            body: webhookFormData,
-            mode: 'no-cors' // 防止跨域导致的报错中断流程
-        }).then(() => console.log("Webhook 备份上传成功"))
-          .catch(err => console.error("Webhook 备份失败:", err));
+        // fetch(webhookUrl, {
+        //     method: "POST",
+        //     body: webhookFormData,
+        //     mode: 'no-cors' // 防止跨域导致的报错中断流程
+        // }).then(() => console.log("Webhook 备份上传成功"))
+        //   .catch(err => console.error("Webhook 备份失败:", err));
         // 新增
         const resData = await response.json();
         if (resData.code === 200) {
