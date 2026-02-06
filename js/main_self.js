@@ -251,7 +251,7 @@ function processAndDraw(lm) {
                 if (diff > maxFluctuation) maxFluctuation = diff;
             }
 
-            if (maxFluctuation <= 5) {
+            if (maxFluctuation <= 8) {
                 // 稳定
                 const duration = Date.now() - state.stableStartTimestamp;
                 if (duration > CONSTANTS.STABILITY_DURATION) {
