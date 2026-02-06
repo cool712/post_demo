@@ -33,7 +33,8 @@ export const state = {
 };
 
 export const CONSTANTS = {
-    KEY_LANDMARKS: [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
+    // 移除 0(鼻), 27(左踝), 28(右踝)，只检测躯干和四肢主要关节
+    KEY_LANDMARKS: [11, 12, 13, 14, 15, 16, 23, 24, 25, 26],
     STABILITY_DURATION: 2000, // 保持姿势稳定的时间 2000毫秒 = 2秒
     COUNTDOWN_DURATION: 3000, // 倒计时时间 3000毫秒 = 3秒
     STATIC_CHECK_POINTS: [11, 12, 23, 24, 25, 26],
