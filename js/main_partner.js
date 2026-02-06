@@ -214,9 +214,18 @@ function loop(ts) {
                 hideDynamicIsland();
                 if (!state.isRecording && state.autoRecordState !== 'DISABLED') {
                     // showToast("请站在检测框内"); // 已移除
+                    // 即使没人，倒计时也不中断（已移除失去目标中断逻辑）
+                    
+                    // 确保没人时倒计时也能继续刷新
                     if (state.autoRecordState === 'COUNTDOWN') {
-                        state.autoRecordState = 'IDLE';
-                        console.log("倒计时中断：失去目标");
+                         const elapsed = Date.now() - state.countdownStartTime;
+                         const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
+                         
+                         drawCountdown(remaining);
+
+                         if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
+                             _startMediaRecorder();
+                         }
                     }
                 }
             }
