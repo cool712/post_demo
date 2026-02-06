@@ -274,8 +274,13 @@ function processAndDraw(lm) {
             // 如果离开画面，重置稳定性
             state.referenceAngles = null;
         } else if (!isStable) {
+            // 确保 stableStartTimestamp 有效
+            if (!state.stableStartTimestamp) state.stableStartTimestamp = Date.now();
+            
             const currentDuration = Date.now() - state.stableStartTimestamp;
-            const remainingSeconds = Math.ceil((CONSTANTS.STABILITY_DURATION - currentDuration) / 1000);
+            let remainingSeconds = Math.ceil((CONSTANTS.STABILITY_DURATION - currentDuration) / 1000);
+            if (isNaN(remainingSeconds) || remainingSeconds < 0) remainingSeconds = CONSTANTS.STABILITY_DURATION / 1000;
+            
             statusText = `请保持姿势${remainingSeconds}秒`;
         } else {
             // 在画面内且稳定超过 3 秒
