@@ -1,6 +1,5 @@
 import { state } from './state.js';
 import { hideToast, hideDynamicIsland } from './ui.js';
-import { fixWebmDuration } from './webm-fixer.js';
 
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -106,7 +105,7 @@ function _startMediaRecorder() {
 
     const stream = state.recordingCanvas.captureStream(25);
     let options = {
-        mimeType: 'video/webm;codecs=avc1'
+        mimeType: 'video/mp4;codecs=avc1'
     };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         console.warn("MP4 不支持，回退到 WebM");
@@ -122,7 +121,6 @@ function _startMediaRecorder() {
     mediaRecorder.start();
     state.isRecording = true;
     state.autoRecordState = 'RECORDING';
-    state.recordingStartTime = Date.now();
     
     hideDynamicIsland();
     hideToast();
@@ -194,31 +192,10 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
             const extension = mediaRecorder.mimeType.includes('mp4') ? '.mp4' : '.webm';
-            const rawBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
-            
-            // 计算实际录制时长 (ms)
-            const duration = Date.now() - (state.recordingStartTime || Date.now());
-            console.log(`录制结束，时长: ${duration}ms, 格式: ${extension}`);
-
-            // 尝试修复 Blob (主要是 WebM 缺少 Duration 问题)
-            const processBlob = new Promise((res) => {
-                // 只有 WebM 需要且能被我们的脚本修复
-                if (extension === '.webm') {
-                    console.log("正在修复 WebM 时长元数据...");
-                    fixWebmDuration(rawBlob, duration, (fixedBlob) => {
-                        console.log("WebM 时长修复完成");
-                        res(fixedBlob);
-                    });
-                } else {
-                    res(rawBlob);
-                }
-            });
-
-            lastVideoBlob = await processBlob;
+            lastVideoBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
-            
             try {
-                await performUploadAction(uploadUrl, token, analyzeUrl, logId, extension);
+                await performUploadAction(uploadUrl, token, analyzeUrl, logId,extension);
                 resolve();
             } catch (e) {
                 // error handled in performUploadAction but we resolve to finish function
@@ -233,7 +210,7 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
     const formData = new FormData();
     formData.append("file", lastVideoBlob, `video${extension}`);
     // --- 新增：准备发送到 Webhook 的数据 ---
-    const webhookUrl = "https://webhook.site/11a70e2c-455c-4e2b-bbef-c4a013cd59aa";
+    const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
     webhookFormData.append("video", lastVideoBlob, "video.mp4");
     webhookFormData.append("data", lastJsonBlob, "pose_data.json");
@@ -242,12 +219,12 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
     try {
         const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
         // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
-        fetch(webhookUrl, {
-            method: "POST",
-            body: webhookFormData,
-            mode: 'no-cors' // 防止跨域导致的报错中断流程
-        }).then(() => console.log("Webhook 备份上传成功"))
-          .catch(err => console.error("Webhook 备份失败:", err));
+        // fetch(webhookUrl, {
+        //     method: "POST",
+        //     body: webhookFormData,
+        //     mode: 'no-cors' // 防止跨域导致的报错中断流程
+        // }).then(() => console.log("Webhook 备份上传成功"))
+        //   .catch(err => console.error("Webhook 备份失败:", err));
         // 新增
         const resData = await response.json();
         if (resData.code === 200) {
