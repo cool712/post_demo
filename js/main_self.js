@@ -227,7 +227,7 @@ function loop(ts) {
 function processAndDraw(lm) {
     if (!state.isRecording && (state.autoRecordState === 'IDLE' || state.autoRecordState === 'COUNTDOWN')) {
         
-        const { inFrame, msg: frameMsg } = checkBodyInFrame(lm);
+        const { inFrame, msg: frameMsg } = checkBodyInFrame(lm, CONSTANTS.KEY_LANDMARKS_SELFIE);
         // 定义需要监测的关键关节：肘部、肩部、髋部、膝部
         const keyJoints = [
             [11, 13, 15], [12, 14, 16], // 肘部
@@ -251,7 +251,7 @@ function processAndDraw(lm) {
                 if (diff > maxFluctuation) maxFluctuation = diff;
             }
 
-            if (maxFluctuation <= 15) {
+            if (maxFluctuation <= 25) {
                 // 稳定
                 const duration = Date.now() - state.stableStartTimestamp;
                 if (duration > CONSTANTS.STABILITY_DURATION) {

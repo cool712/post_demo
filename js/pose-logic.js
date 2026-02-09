@@ -1,9 +1,9 @@
 import { state, CONSTANTS } from './state.js';
 import { getSafeZoneRect, toCanvas } from './utils.js';
 
-export function checkBodyInFrame(lm) {
+export function checkBodyInFrame(lm, indices = CONSTANTS.KEY_LANDMARKS) {
     // 1. 检查可见性 (Visibility)
-    for (let i of CONSTANTS.KEY_LANDMARKS) {
+    for (let i of indices) {
         if (!lm[i] || lm[i].visibility < CONSTANTS.VISIBILITY_THRESHOLD) {
             return { inFrame: false, msg: "关键点未被捕捉" };
         }
@@ -12,7 +12,7 @@ export function checkBodyInFrame(lm) {
     // 2. 检查是否在红框内 (Boundary)
     const rect = getSafeZoneRect();
     
-    for (let i of CONSTANTS.KEY_LANDMARKS) {
+    for (let i of indices) {
         const p = toCanvas(lm[i]);
         
         if (p.x < rect.x || p.x > rect.x + rect.w || 

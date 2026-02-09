@@ -213,8 +213,7 @@ function loop(ts) {
             } else {
                 hideDynamicIsland();
                 if (!state.isRecording && state.autoRecordState !== 'DISABLED') {
-                    // showToast("请站在检测框内"); // 已移除
-                    // 即使没人，倒计时也不中断（已移除失去目标中断逻辑）
+               
                     
                     // 确保没人时倒计时也能继续刷新
                     if (state.autoRecordState === 'COUNTDOWN') {

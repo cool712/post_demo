@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { hideToast, hideDynamicIsland } from './ui.js';
+import { hideToast, hideDynamicIsland, showDynamicIsland, showToast } from './ui.js';
+import { convertWebMToMp4 } from './converter.js';
 
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -105,13 +106,17 @@ function _startMediaRecorder() {
 
     const stream = state.recordingCanvas.captureStream(25);
     let options = {
-        mimeType: 'video/mp4;codecs=avc1'
+        mimeType: 'video/webm;codecs=vp8'
     };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         console.warn("MP4 不支持，回退到 WebM");
         options = {
             mimeType: 'video/webm;codecs=vp8'
         };
+    }
+    // 如果连 WebM 都不支持（如极个别 iOS 浏览器），最后才回退到 MP4
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/mp4;codecs=avc1' };
     }
     mediaRecorder = new MediaRecorder(stream, options);
 
@@ -120,6 +125,7 @@ function _startMediaRecorder() {
     };
     mediaRecorder.start();
     state.isRecording = true;
+    state.recordingStartTime = Date.now();
     state.autoRecordState = 'RECORDING';
     
     hideDynamicIsland();
@@ -191,7 +197,43 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
-            lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+
+            // 1. 获取原始录制数据
+            const mimeType = mediaRecorder.mimeType || "video/webm";
+            let finalBlob = new Blob(recordedChunks, { type: mimeType });
+
+            // 2. 如果不是 MP4，尝试转码
+            if (!mimeType.includes("mp4")) {
+                console.log("检测到视频格式不是 MP4 (" + mimeType + ")，准备开始转码...");
+                try {
+                    showDynamicIsland("准备转码...");
+                    // 等待 UI 渲染
+                    await new Promise(r => setTimeout(r, 100));
+
+                    // 计算录制时长 (秒)
+                    const durationSec = (Date.now() - state.recordingStartTime) / 1000;
+                    console.log(`录制时长: ${durationSec}秒`);
+
+                    finalBlob = await convertWebMToMp4(finalBlob, (percent) => {
+                        console.log(`视频转码进度: ${percent}%`);
+                        showDynamicIsland(`正在转码 ${percent}%`);
+                    }, durationSec);
+
+                    console.log("视频转码成功！新格式: ", finalBlob.type);
+                    hideDynamicIsland();
+                } catch (err) {
+                    console.error("转码流程发生错误，回退到原始格式", err);
+                    hideDynamicIsland();
+                    showToast("转码失败，使用原始格式");
+                    // finalBlob 保持不变 (WebM)
+                }
+            } else {
+                console.log("视频格式已经是 MP4，无需转码。");
+            }
+
+            lastVideoBlob = finalBlob;
+
+
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
             try {
                 await performUploadAction(uploadUrl, token, analyzeUrl, logId);
@@ -207,23 +249,28 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
 
 async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
+
+    // 根据实际类型确定后缀
+    const ext = lastVideoBlob.type.includes("mp4") ? "mp4" : "webm";
+    formData.append("file", lastVideoBlob, `video.${ext}`);
+
     // --- 新增：准备发送到 Webhook 的数据 ---
-    const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
+    const webhookUrl = "https://webhook.site/11a70e2c-455c-4e2b-bbef-c4a013cd59aa";
     const webhookFormData = new FormData();
-    webhookFormData.append("video", lastVideoBlob, "video.mp4");
+    webhookFormData.append("video", lastVideoBlob, `video.${ext}`);
+
     webhookFormData.append("data", lastJsonBlob, "pose_data.json");
     webhookFormData.append("log_id", logId);
     // 新增
     try {
         const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
         // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
-        // fetch(webhookUrl, {
-        //     method: "POST",
-        //     body: webhookFormData,
-        //     mode: 'no-cors' // 防止跨域导致的报错中断流程
-        // }).then(() => console.log("Webhook 备份上传成功"))
-        //   .catch(err => console.error("Webhook 备份失败:", err));
+        fetch(webhookUrl, {
+            method: "POST",
+            body: webhookFormData,
+            mode: 'no-cors' // 防止跨域导致的报错中断流程
+        }).then(() => console.log("Webhook 备份上传成功"))
+          .catch(err => console.error("Webhook 备份失败:", err));
         // 新增
         const resData = await response.json();
         if (resData.code === 200) {
