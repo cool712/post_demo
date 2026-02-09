@@ -125,6 +125,7 @@ function _startMediaRecorder() {
     };
     mediaRecorder.start();
     state.isRecording = true;
+    state.recordingStartTime = Date.now();
     state.autoRecordState = 'RECORDING';
     
     hideDynamicIsland();
@@ -209,10 +210,14 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
                     // 等待 UI 渲染
                     await new Promise(r => setTimeout(r, 100));
 
+                    // 计算录制时长 (秒)
+                    const durationSec = (Date.now() - state.recordingStartTime) / 1000;
+                    console.log(`录制时长: ${durationSec}秒`);
+
                     finalBlob = await convertWebMToMp4(finalBlob, (percent) => {
                         console.log(`视频转码进度: ${percent}%`);
                         showDynamicIsland(`正在转码 ${percent}%`);
-                    });
+                    }, durationSec);
 
                     console.log("视频转码成功！新格式: ", finalBlob.type);
                     hideDynamicIsland();

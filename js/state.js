@@ -9,6 +9,7 @@ export const state = {
     lastFrameLandmarks: null,
     poseDataJson: {},
     currentRecordFrameIndex: 0,
+    recordingStartTime: 0,
     countdownStartTime: 0,
     
     // DOM Elements (will be set in main.js)

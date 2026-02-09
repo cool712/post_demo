@@ -7,7 +7,7 @@ const { toBlobURL } = window.FFmpegUtil;
 
 let ffmpeg = null;
 
-export async function convertWebMToMp4(webmBlob, onProgress) {
+export async function convertWebMToMp4(webmBlob, onProgress, durationSec = 0) {
     console.log("开始调用 convertWebMToMp4 函数...");
     try {
         if (!ffmpeg) {
@@ -38,8 +38,19 @@ export async function convertWebMToMp4(webmBlob, onProgress) {
         await ffmpeg.writeFile(inputName, new Uint8Array(arrayBuffer));
 
         // 监听进度
-        ffmpeg.on('progress', ({ progress }) => {
-            if (onProgress) onProgress(Math.round(progress * 100));
+        ffmpeg.on('progress', ({ progress, time }) => {
+            let percent = progress * 100;
+            
+            // 如果 progress 数值异常 (例如负数或 NaN)，尝试使用 time 计算
+            if ((percent < 0 || isNaN(percent)) && durationSec > 0 && time !== undefined && time >= 0) {
+                // time 是当前转码到的时间点(秒)
+                percent = (time / durationSec) * 100;
+            }
+
+            // 再次兜底，确保在 0-100 之间
+            percent = Math.max(0, Math.min(100, percent));
+            
+            if (onProgress) onProgress(Math.round(percent));
         });
 
         console.log("开始执行 FFmpeg 转码命令...");
