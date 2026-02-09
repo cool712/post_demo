@@ -191,10 +191,11 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
-            lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+            const extension = mediaRecorder.mimeType.includes('mp4') ? '.mp4' : '.webm';
+            lastVideoBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
             try {
-                await performUploadAction(uploadUrl, token, analyzeUrl, logId);
+                await performUploadAction(uploadUrl, token, analyzeUrl, logId,extension);
                 resolve();
             } catch (e) {
                 // error handled in performUploadAction but we resolve to finish function
@@ -205,9 +206,9 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     });
 }
 
-async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
+async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension) {
     const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
+    formData.append("file", lastVideoBlob, `video${extension}`);
     // --- 新增：准备发送到 Webhook 的数据 ---
     const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
