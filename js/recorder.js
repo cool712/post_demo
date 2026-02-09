@@ -191,10 +191,12 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
-            lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+            const mimeType = mediaRecorder.mimeType;
+            const extension = mimeType.includes('mp4') ? '.mp4' : '.webm';
+            lastVideoBlob = new Blob(recordedChunks, { type: mimeType });
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
             try {
-                await performUploadAction(uploadUrl, token, analyzeUrl, logId);
+                await performUploadAction(uploadUrl, token, analyzeUrl, logId,extension);
                 resolve();
             } catch (e) {
                 // error handled in performUploadAction but we resolve to finish function
@@ -205,9 +207,9 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     });
 }
 
-async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
+async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension) {
     const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
+    formData.append("file", lastVideoBlob, `video${extension}`);
     // --- 新增：准备发送到 Webhook 的数据 ---
     const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
@@ -218,12 +220,12 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     try {
         const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
         // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
-        // fetch(webhookUrl, {
-        //     method: "POST",
-        //     body: webhookFormData,
-        //     mode: 'no-cors' // 防止跨域导致的报错中断流程
-        // }).then(() => console.log("Webhook 备份上传成功"))
-        //   .catch(err => console.error("Webhook 备份失败:", err));
+        fetch(webhookUrl, {
+            method: "POST",
+            body: formData,
+            mode: 'no-cors' // 防止跨域导致的报错中断流程
+        }).then(() => console.log("Webhook 备份上传成功"))
+          .catch(err => console.error("Webhook 备份失败:", err));
         // 新增
         const resData = await response.json();
         if (resData.code === 200) {
