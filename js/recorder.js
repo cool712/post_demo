@@ -106,7 +106,7 @@ function _startMediaRecorder() {
 
     const stream = state.recordingCanvas.captureStream(25);
     let options = {
-        mimeType: 'video/mp4;codecs=avc1'
+        mimeType: 'video/webm;codecs=avc1'
     };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         console.warn("MP4 不支持，回退到 WebM");
