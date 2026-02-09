@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { hideToast, hideDynamicIsland } from './ui.js';
+import { fixWebmDuration } from './webm-fixer.js';
 
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -121,6 +122,7 @@ function _startMediaRecorder() {
     mediaRecorder.start();
     state.isRecording = true;
     state.autoRecordState = 'RECORDING';
+    state.recordingStartTime = Date.now();
     
     hideDynamicIsland();
     hideToast();
@@ -192,10 +194,31 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
             const extension = mediaRecorder.mimeType.includes('mp4') ? '.mp4' : '.webm';
-            lastVideoBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+            const rawBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+            
+            // 计算实际录制时长 (ms)
+            const duration = Date.now() - (state.recordingStartTime || Date.now());
+            console.log(`录制结束，时长: ${duration}ms, 格式: ${extension}`);
+
+            // 尝试修复 Blob (主要是 WebM 缺少 Duration 问题)
+            const processBlob = new Promise((res) => {
+                // 只有 WebM 需要且能被我们的脚本修复
+                if (extension === '.webm') {
+                    console.log("正在修复 WebM 时长元数据...");
+                    fixWebmDuration(rawBlob, duration, (fixedBlob) => {
+                        console.log("WebM 时长修复完成");
+                        res(fixedBlob);
+                    });
+                } else {
+                    res(rawBlob);
+                }
+            });
+
+            lastVideoBlob = await processBlob;
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
+            
             try {
-                await performUploadAction(uploadUrl, token, analyzeUrl, logId,extension);
+                await performUploadAction(uploadUrl, token, analyzeUrl, logId, extension);
                 resolve();
             } catch (e) {
                 // error handled in performUploadAction but we resolve to finish function
