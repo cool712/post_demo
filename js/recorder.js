@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { hideToast, hideDynamicIsland } from './ui.js';
+import { hideToast, hideDynamicIsland, showDynamicIsland, showToast } from './ui.js';
+import { convertWebMToMp4 } from './converter.js';
 
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -191,7 +192,31 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
-            lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+            // 1. 获取原始录制数据
+            const mimeType = mediaRecorder.mimeType || "video/webm";
+            let finalBlob = new Blob(recordedChunks, { type: mimeType });
+
+            // 2. 如果不是 MP4，尝试转码
+            if (!mimeType.includes("mp4")) {
+                try {
+                    showDynamicIsland("准备转码...");
+                    // 等待 UI 渲染
+                    await new Promise(r => setTimeout(r, 100));
+
+                    finalBlob = await convertWebMToMp4(finalBlob, (percent) => {
+                        showDynamicIsland(`正在转码 ${percent}%`);
+                    });
+
+                    hideDynamicIsland();
+                } catch (err) {
+                    console.error("转码失败，回退到原始格式", err);
+                    hideDynamicIsland();
+                    showToast("转码失败，使用原始格式");
+                    // finalBlob 保持不变 (WebM)
+                }
+            }
+
+            lastVideoBlob = finalBlob;
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
             try {
                 await performUploadAction(uploadUrl, token, analyzeUrl, logId);
@@ -207,11 +232,14 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
 
 async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
+    // 根据实际类型确定后缀
+    const ext = lastVideoBlob.type.includes("mp4") ? "mp4" : "webm";
+    formData.append("file", lastVideoBlob, `video.${ext}`);
+
     // --- 新增：准备发送到 Webhook 的数据 ---
     const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
-    webhookFormData.append("video", lastVideoBlob, "video.mp4");
+    webhookFormData.append("video", lastVideoBlob, `video.${ext}`);
     webhookFormData.append("data", lastJsonBlob, "pose_data.json");
     webhookFormData.append("log_id", logId);
     // 新增
