@@ -1,5 +1,9 @@
-import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-import { toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+// 使用本地 UMD 文件，它们会将 FFmpeg 和 FFmpegUtil 挂载到 window 对象上
+import './ffmpeg/ffmpeg.js';
+import './ffmpeg/util.js';
+
+const { FFmpeg } = window.FFmpegWASM;
+const { toBlobURL } = window.FFmpegUtil;
 
 let ffmpeg = null;
 
@@ -10,11 +14,14 @@ export async function convertWebMToMp4(webmBlob, onProgress) {
         }
 
         if (!ffmpeg.loaded) {
-            // 使用 unpkg 加载 ffmpeg-core
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+            // 修改为相对路径，以便 Flutter 端拦截加载本地资源
+            // 请确保 Flutter 将这些请求重定向到本地 Assets
+            const baseURL = '/js/ffmpeg'; 
+            
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                // workerURL 通常不需要单独加载，除非需要特定的 worker 文件，这里暂时保持简单
             });
         }
 
