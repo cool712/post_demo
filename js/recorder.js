@@ -203,22 +203,27 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
 
             // 2. 如果不是 MP4，尝试转码
             if (!mimeType.includes("mp4")) {
+                console.log("检测到视频格式不是 MP4 (" + mimeType + ")，准备开始转码...");
                 try {
                     showDynamicIsland("准备转码...");
                     // 等待 UI 渲染
                     await new Promise(r => setTimeout(r, 100));
 
                     finalBlob = await convertWebMToMp4(finalBlob, (percent) => {
+                        console.log(`视频转码进度: ${percent}%`);
                         showDynamicIsland(`正在转码 ${percent}%`);
                     });
 
+                    console.log("视频转码成功！新格式: ", finalBlob.type);
                     hideDynamicIsland();
                 } catch (err) {
-                    console.error("转码失败，回退到原始格式", err);
+                    console.error("转码流程发生错误，回退到原始格式", err);
                     hideDynamicIsland();
                     showToast("转码失败，使用原始格式");
                     // finalBlob 保持不变 (WebM)
                 }
+            } else {
+                console.log("视频格式已经是 MP4，无需转码。");
             }
 
             lastVideoBlob = finalBlob;

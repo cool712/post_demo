@@ -8,12 +8,15 @@ const { toBlobURL } = window.FFmpegUtil;
 let ffmpeg = null;
 
 export async function convertWebMToMp4(webmBlob, onProgress) {
+    console.log("开始调用 convertWebMToMp4 函数...");
     try {
         if (!ffmpeg) {
+            console.log("初始化 FFmpeg 实例...");
             ffmpeg = new FFmpeg();
         }
 
         if (!ffmpeg.loaded) {
+            console.log("正在加载 FFmpeg 核心文件...");
             // 修改为相对路径，以便 Flutter 端拦截加载本地资源
             // 请确保 Flutter 将这些请求重定向到本地 Assets
             const baseURL = '/js/ffmpeg'; 
@@ -23,11 +26,13 @@ export async function convertWebMToMp4(webmBlob, onProgress) {
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
                 // workerURL 通常不需要单独加载，除非需要特定的 worker 文件，这里暂时保持简单
             });
+            console.log("FFmpeg 加载完成！");
         }
 
         const inputName = 'input.webm';
         const outputName = 'output.mp4';
 
+        console.log("写入 WebM 文件到虚拟文件系统...");
         // 写入文件
         const arrayBuffer = await webmBlob.arrayBuffer();
         await ffmpeg.writeFile(inputName, new Uint8Array(arrayBuffer));
@@ -37,6 +42,7 @@ export async function convertWebMToMp4(webmBlob, onProgress) {
             if (onProgress) onProgress(Math.round(progress * 100));
         });
 
+        console.log("开始执行 FFmpeg 转码命令...");
         // 执行转码 (使用 ultrafast 预设以加快速度)
         // 注意：WebM (VP8/9) -> MP4 (H.264) 必须重编码
         await ffmpeg.exec([
@@ -46,9 +52,11 @@ export async function convertWebMToMp4(webmBlob, onProgress) {
             '-c:a', 'aac',          // 音频转 AAC
             outputName
         ]);
+        console.log("FFmpeg 转码命令执行完毕！");
 
         // 读取结果
         const data = await ffmpeg.readFile(outputName);
+        console.log("读取输出文件成功，大小:", data.length);
         
         // 清理内存
         await ffmpeg.deleteFile(inputName);
@@ -57,7 +65,7 @@ export async function convertWebMToMp4(webmBlob, onProgress) {
         return new Blob([data.buffer], { type: 'video/mp4' });
 
     } catch (error) {
-        console.error("转码失败:", error);
+        console.error("convertWebMToMp4 内部发生错误:", error);
         throw error;
     }
 }
