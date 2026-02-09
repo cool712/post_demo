@@ -6,7 +6,6 @@ import {
 import { state, CONSTANTS } from './state.js';
 import { showDynamicIsland, hideDynamicIsland, updateDynamicIslandRotation } from './ui.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
-import { pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
 /* ---------- 拍人模式初始化 ---------- */
 state.facingMode = "environment";
@@ -235,9 +234,9 @@ function loop(ts) {
     }
 
     // 如果正在录制，无论是否检测到人体，都更新录制画布
-    if (state.isRecording) {
-        updateRecordingCanvas();
-    }
+    // if (state.isRecording) {
+    //    updateRecordingCanvas();
+    // }
 }
 
 function processAndDraw(lm) {
@@ -252,7 +251,10 @@ function processAndDraw(lm) {
             drawCountdown(remaining);
 
             if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
-                _startMediaRecorder();
+                // _startMediaRecorder();
+                // 倒计时结束后重置
+                state.autoRecordState = 'IDLE';
+                console.log("倒计时结束，但录制已被禁用");
             }
         }
     } 
@@ -272,8 +274,8 @@ function processAndDraw(lm) {
 
 /* ---------- 导出到 Window ---------- */
 // window.startRecord = startRecord; // 被上面的手动触发覆盖
-window.pauseRecord = pauseRecord;
-window.stopAndUpload = stopAndUpload;
+// window.pauseRecord = pauseRecord;
+// window.stopAndUpload = stopAndUpload;
 
 /* ---------- 初始化 ---------- */
 async function main() {

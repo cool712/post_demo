@@ -8,7 +8,6 @@ import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToast
 import { calcAngle } from './utils.js';
 import { checkBodyInFrame } from './pose-logic.js';
 import { drawSafeZone, drawSkeleton, drawCountdown } from './drawing.js';
-import { startRecord, pauseRecord, stopAndUpload, _startMediaRecorder, updateRecordingCanvas } from './recorder.js';
 
 /* ---------- 自拍模式初始化 ---------- */
 state.facingMode = "user";
@@ -219,9 +218,9 @@ function loop(ts) {
     }
 
     // 如果正在录制，无论是否检测到人体，都更新录制画布
-    if (state.isRecording) {
-        updateRecordingCanvas();
-    }
+    // if (state.isRecording) {
+    //    updateRecordingCanvas();
+    // }
 }
 
 function processAndDraw(lm) {
@@ -314,10 +313,15 @@ function processAndDraw(lm) {
                  dynamicIslandMsg = "保持不动";
 
                  drawCountdown(remaining);
-
+ 
                  if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
-                     _startMediaRecorder();
-                     shouldShowDynamicIsland = false;
+                     // _startMediaRecorder();
+                     // shouldShowDynamicIsland = false;
+                     
+                     // 倒计时结束后重置，不再自动录制
+                     state.autoRecordState = 'IDLE';
+                     showToast("准备完成");
+                     setTimeout(() => hideToast(), 2000);
                  }
              }
         } else {
@@ -354,9 +358,9 @@ function processAndDraw(lm) {
 }
 
 /* ---------- 导出到 Window ---------- */
-window.startRecord = startRecord;
-window.pauseRecord = pauseRecord;
-window.stopAndUpload = stopAndUpload;
+// window.startRecord = startRecord;
+// window.pauseRecord = pauseRecord;
+// window.stopAndUpload = stopAndUpload;
 
 /* ---------- 初始化 ---------- */
 async function main() {
