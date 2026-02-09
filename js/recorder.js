@@ -105,13 +105,17 @@ function _startMediaRecorder() {
 
     const stream = state.recordingCanvas.captureStream(25);
     let options = {
-        mimeType: 'video/mp4;codecs=avc1'
+        mimeType: 'video/webm;codecs=vp8'
     };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         console.warn("MP4 不支持，回退到 WebM");
         options = {
             mimeType: 'video/webm;codecs=vp8'
         };
+    }
+    // 如果连 WebM 都不支持（如极个别 iOS 浏览器），最后才回退到 MP4
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/mp4;codecs=avc1' };
     }
     mediaRecorder = new MediaRecorder(stream, options);
 
@@ -191,7 +195,7 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     
     return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
-            lastVideoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+            lastVideoBlob = new Blob(recordedChunks, { type: "video/webm" });
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
             try {
                 await performUploadAction(uploadUrl, token, analyzeUrl, logId);
@@ -207,11 +211,11 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
 
 async function performUploadAction(uploadUrl, token, analyzeUrl, logId) {
     const formData = new FormData();
-    formData.append("file", lastVideoBlob, "video.mp4");
+    formData.append("file", lastVideoBlob, "video.webm");
     // --- 新增：准备发送到 Webhook 的数据 ---
     const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
-    webhookFormData.append("video", lastVideoBlob, "video.mp4");
+    webhookFormData.append("video", lastVideoBlob, "video.webm");
     webhookFormData.append("data", lastJsonBlob, "pose_data.json");
     webhookFormData.append("log_id", logId);
     // 新增
