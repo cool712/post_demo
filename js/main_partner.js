@@ -133,15 +133,16 @@ window.toggleCamera = async () => {
 };
 
 /* ---------- AI 模型 ---------- */
+/* ---------- 修正后的 AI 模型加载 ---------- */
 async function initAI() {
     try {
         const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-        // 定义一个内部加载函数，方便重试
-        async function tryLoadModel(delegateType) {
-            console.log(`正在尝试使用 ${delegateType} 模式加载 AI 模型...`);
+        
+        // 封装具体的创建逻辑
+        const createLandmarker = async (delegateType) => {
             return await PoseLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
+                    modelAssetPath: "/mediapipe/model/pose_landmarker_full.task", // 路径保持不变
                     delegate: delegateType
                 },
                 runningMode: "VIDEO",
@@ -150,24 +151,27 @@ async function initAI() {
                 minPosePresenceConfidence: 0.5,
                 minTrackingConfidence: 0.5
             });
-        }
+        };
 
-        // 策略：优先 GPU，失败则回退 CPU
         try {
-            state.poseLandmarker = await tryLoadModel("GPU");
-            console.log("✅ AI 模型已在 GPU 模式下启动");
+            console.log("🚀 尝试初始化 GPU 模式...");
+            state.poseLandmarker = await createLandmarker("GPU");
+            console.log("✅ GPU 模式加载成功");
         } catch (gpuError) {
-            console.warn("⚠️ GPU 模式启动失败，正在回退到 CPU 模式...", gpuError);
+            // 这里非常关键：捕获到 GPU 错误（即你日志里的 WebGL 错误）后，强制进入 CPU 流程
+            console.warn("⚠️ 检测到环境不支持 WebGL，强制回退至 CPU 运算模式...");
+            
             try {
-                state.poseLandmarker = await tryLoadModel("CPU");
-                console.log("ℹ️ AI 模型已在 CPU 模式下成功启动（性能受限）");
+                // 在 CPU 模式下，MediaPipe 有时会因为内存分配报错，这里再次 try-catch
+                state.poseLandmarker = await createLandmarker("CPU");
+                console.log("ℹ️ CPU 模式加载成功（Full模型在CPU上压力较大）");
             } catch (cpuError) {
-                console.error("❌ CPU 模式也启动失败，请检查模型路径或浏览器环境", cpuError);
-                showDynamicIsland("AI初始化失败");
+                console.error("❌ 严重错误：该设备无法运行 Full 模型", cpuError);
+                showDynamicIsland("设备性能不足以运行AI");
             }
         }
     } catch (err) {
-        console.error("无法解析 MediaPipe 运行时文件", err);
+        console.error("运行时解析失败:", err);
     }
 }
 
