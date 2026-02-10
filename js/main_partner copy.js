@@ -134,15 +134,13 @@ window.toggleCamera = async () => {
 
 /* ---------- AI 模型 ---------- */
 async function initAI() {
-    try {
-        const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
-        // 定义一个内部加载函数，方便重试
-        async function tryLoadModel(delegateType) {
-            console.log(`正在尝试使用 ${delegateType} 模式加载 AI 模型...`);
-            return await PoseLandmarker.createFromOptions(vision, {
+    setTimeout(async () => {
+        try {
+            const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+            state.poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                 baseOptions: {
                     modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
-                    delegate: delegateType
+                    delegate: "GPU"
                 },
                 runningMode: "VIDEO",
                 numPoses: 1,
@@ -150,25 +148,10 @@ async function initAI() {
                 minPosePresenceConfidence: 0.5,
                 minTrackingConfidence: 0.5
             });
+        } catch (err) {
+            console.error("AI Load Failed", err);
         }
-
-        // 策略：优先 GPU，失败则回退 CPU
-        try {
-            state.poseLandmarker = await tryLoadModel("GPU");
-            console.log("✅ AI 模型已在 GPU 模式下启动");
-        } catch (gpuError) {
-            console.warn("⚠️ GPU 模式启动失败，正在回退到 CPU 模式...", gpuError);
-            try {
-                state.poseLandmarker = await tryLoadModel("CPU");
-                console.log("ℹ️ AI 模型已在 CPU 模式下成功启动（性能受限）");
-            } catch (cpuError) {
-                console.error("❌ CPU 模式也启动失败，请检查模型路径或浏览器环境", cpuError);
-                showDynamicIsland("AI初始化失败");
-            }
-        }
-    } catch (err) {
-        console.error("无法解析 MediaPipe 运行时文件", err);
-    }
+    }, 1000);
 }
 
 /* ---------- 循环 ---------- */
@@ -294,17 +277,9 @@ window.stopAndUpload = stopAndUpload;
 
 /* ---------- 初始化 ---------- */
 async function main() {
-    try {
-        // 1. 先启动摄像头，确保用户能看到预览，降低焦虑
-        await startCamera();
-        // 2. 启动渲染循环
-        requestAnimationFrame(loop);
-        // 3. 异步初始化 AI，不阻塞摄像头预览显示
-        // 延迟 100ms 避开摄像头启动瞬间的 CPU 峰值
-        setTimeout(initAI, 100);
-    } catch (err) {
-        console.error("初始化流程崩溃:", err);
-    }
+    await startCamera();
+    requestAnimationFrame(loop);
+    setTimeout(initAI, 100);
 }
 
 main();
