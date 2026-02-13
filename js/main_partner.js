@@ -337,11 +337,39 @@ async function main() {
     }
 }
 
-// 根据设备类型初始化
-if (isIOS) {
-    // 在 iOS 设备上显示权限请求按钮
-    authMask.style.display = 'flex';
-} else {
-    // 非 iOS 设备直接启动
-    main();
+// 检测传感器权限状态
+async function checkSensorPermission() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            // 尝试获取权限状态
+            const permission = await DeviceOrientationEvent.requestPermission();
+            return permission === 'granted';
+        } catch (err) {
+            console.warn("传感器权限检查失败:", err);
+            return false;
+        }
+    }
+    return true; // 非 iOS 设备默认有权限
 }
+
+// 根据设备类型初始化
+async function initializeApp() {
+    if (isIOS) {
+        // 检查是否已经授权
+        const hasPermission = await checkSensorPermission();
+        if (hasPermission) {
+            // 已经授权，直接启动
+            main();
+        } else {
+            // 未授权，显示权限请求按钮
+            authMask.style.display = 'flex';
+        }
+    } else {
+        // 非 iOS 设备直接启动
+        main();
+    }
+}
+
+// 启动应用
+initializeApp();
