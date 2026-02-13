@@ -17,30 +17,21 @@ state.video = document.getElementById("video");
 state.canvas = document.getElementById("canvas");
 state.ctx = state.canvas.getContext("2d", { alpha: true });
 
+// iOS 权限遮罩元素
+const authMask = document.getElementById('ios-auth-mask');
+const authBtn = document.getElementById('auth-btn');
+
 let dynamicScale = 0.5;
 let frameCount = 0;
 let lastFpsCheck = 0;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-// 核心：请求权限函数
-async function requestSensorPermission() {
-    if (typeof DeviceOrientationEvent !== 'undefined' && 
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-            const response = await DeviceOrientationEvent.requestPermission();
-            console.log("iOS Sensor Permission:", response);
-        } catch (err) {
-            console.error("Permission Request Error:", err);
-        }
-    }
-}
-
 // 按钮点击事件
 authBtn.addEventListener('click', async () => {
     await requestSensorPermission(); // 必须在点击回调内立即执行
     authMask.style.display = 'none'; // 关闭遮罩
-    startMainEngine(); // 启动摄像头和 AI
+    main(); // 启动摄像头和 AI
 });
 /* ---------- 事件监听器 ---------- */
 // 应要求，拍人模式不需要 devicemotion 监听器
@@ -335,7 +326,6 @@ async function main() {
     try {
         // 1. 先启动摄像头，确保用户能看到预览，降低焦虑
         await startCamera();
-        await requestSensorPermission();
         // 2. 启动渲染循环
         requestAnimationFrame(loop);
         
@@ -347,4 +337,11 @@ async function main() {
     }
 }
 
-main();
+// 根据设备类型初始化
+if (isIOS) {
+    // 在 iOS 设备上显示权限请求按钮
+    authMask.style.display = 'flex';
+} else {
+    // 非 iOS 设备直接启动
+    main();
+}
