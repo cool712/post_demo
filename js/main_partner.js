@@ -314,9 +314,10 @@ async function main() {
     try {
         // 1. 先启动摄像头，确保用户能看到预览，降低焦虑
         await startCamera();
+        await requestSensorPermission();
         // 2. 启动渲染循环
         requestAnimationFrame(loop);
-        await requestSensorPermission();
+        
         // 3. 异步初始化 AI，不阻塞摄像头预览显示
         // 延迟 100ms 避开摄像头启动瞬间的 CPU 峰值
         setTimeout(initAI, 100);
