@@ -357,12 +357,31 @@ function processAndDraw(lm) {
 window.startRecord = startRecord;
 window.pauseRecord = pauseRecord;
 window.stopAndUpload = stopAndUpload;
-
+/* ---------- 核心：iOS 权限解锁逻辑 ---------- */
+async function requestSensorPermission() {
+    // 针对 iOS 13+ 的主动授权请求
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission === 'granted') {
+                console.log("传感器授权成功");
+            }
+        } catch (err) {
+            console.warn("传感器授权被拒绝或环境不支持:", err);
+        }
+    }
+}
 /* ---------- 初始化 ---------- */
 async function main() {
-    await startCamera();
+    try {
+        await startCamera();
     requestAnimationFrame(loop);
+    await requestSensorPermission();
     setTimeout(initAI, 100);
+    } catch (err) {
+        console.error("初始化流程崩溃:", err);
+    }
 }
 
 main();

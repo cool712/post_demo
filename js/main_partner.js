@@ -295,7 +295,20 @@ function processAndDraw(lm) {
 // window.startRecord = startRecord; // 被上面的手动触发覆盖
 window.pauseRecord = pauseRecord;
 window.stopAndUpload = stopAndUpload;
-
+async function requestSensorPermission() {
+    // 针对 iOS 13+ 的主动授权请求
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission === 'granted') {
+                console.log("传感器授权成功");
+            }
+        } catch (err) {
+            console.warn("传感器授权被拒绝或环境不支持:", err);
+        }
+    }
+}
 /* ---------- 初始化 ---------- */
 async function main() {
     try {
@@ -303,6 +316,7 @@ async function main() {
         await startCamera();
         // 2. 启动渲染循环
         requestAnimationFrame(loop);
+        await requestSensorPermission();
         // 3. 异步初始化 AI，不阻塞摄像头预览显示
         // 延迟 100ms 避开摄像头启动瞬间的 CPU 峰值
         setTimeout(initAI, 100);
