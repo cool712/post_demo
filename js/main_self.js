@@ -20,9 +20,26 @@ state.video = document.getElementById("video");
 state.canvas = document.getElementById("canvas");
 state.ctx = state.canvas.getContext("2d", { alpha: true });
 
+// iOS 权限遮罩元素
+const authMask = document.getElementById('ios-auth-mask');
+const authBtn = document.getElementById('auth-btn');
+
 let dynamicScale = 0.5;
 let frameCount = 0;
 let lastFpsCheck = 0;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// 按钮点击事件
+authBtn.addEventListener('click', async () => {
+    const hasPermission = await requestSensorPermission(); // 必须在点击回调内立即执行
+    if (hasPermission) {
+        // 授权成功，存储状态
+        localStorage.setItem('sensorPermissionGranted', 'true');
+    }
+    authMask.style.display = 'none'; // 关闭遮罩
+    main(); // 启动摄像头和 AI
+});
 
 /* ---------- 事件监听器 ---------- */
 // 自拍模式不需要 devicemotion 监听器
@@ -366,22 +383,42 @@ async function requestSensorPermission() {
             const permission = await DeviceOrientationEvent.requestPermission();
             if (permission === 'granted') {
                 console.log("传感器授权成功");
+                return true;
             }
         } catch (err) {
             console.warn("传感器授权被拒绝或环境不支持:", err);
         }
     }
+    return true; // 非 iOS 设备默认有权限
 }
 /* ---------- 初始化 ---------- */
 async function main() {
     try {
         await startCamera();
-    requestAnimationFrame(loop);
-    await requestSensorPermission();
-    setTimeout(initAI, 100);
+        requestAnimationFrame(loop);
+        setTimeout(initAI, 100);
     } catch (err) {
         console.error("初始化流程崩溃:", err);
     }
 }
 
-main();
+// 根据设备类型初始化
+function initializeApp() {
+    if (isIOS) {
+        // 检查localStorage中是否存储了授权状态
+        const hasPermission = localStorage.getItem('sensorPermissionGranted') === 'true';
+        if (hasPermission) {
+            // 已经授权，直接启动
+            main();
+        } else {
+            // 未授权，显示权限请求按钮
+            authMask.style.display = 'flex';
+        }
+    } else {
+        // 非 iOS 设备直接启动
+        main();
+    }
+}
+
+// 启动应用
+initializeApp();

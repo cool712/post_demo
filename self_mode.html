@@ -54,6 +54,55 @@
                 text-align: center;
             }
         </style>
+        <style>
+            /* iOS 专用居中遮罩层 */
+            #ios-auth-mask {
+                display: none; /* 初始隐藏，由 JS 判断显示 */
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9); /* 较暗背景，突出按钮 */
+                z-index: 99999; /* 确保在最顶层 */
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding: 20px;
+                box-sizing: border-box;
+            }
+
+            #auth-btn {
+                padding: 16px 32px;
+                background: #007AFF; /* 经典 iOS 蓝色 */
+                color: white;
+                border: none;
+                border-radius: 24px;
+                font-size: 18px;
+                font-weight: 600;
+                cursor: pointer;
+                box-shadow: 0 4px 15px rgba(0, 122, 255, 0.4);
+                -webkit-tap-highlight-color: transparent;
+                margin: 0 auto;
+                display: block;
+            }
+
+            #auth-btn:active {
+                background: #0056b3;
+                transform: scale(0.98);
+            }
+
+            #auth-tip {
+                color: rgba(255, 255, 255, 0.7);
+                margin-top: 20px;
+                font-size: 14px;
+                line-height: 1.5;
+                max-width: 280px;
+                margin: 20px auto 0;
+                text-align: center;
+            }
+        </style>
 	</head>
 
 	<body>
@@ -62,6 +111,11 @@
 				alert("Global Error: " + msg + "\nLine: " + line + "\nCol: " + col);
 			};
 		</script>
+
+        <div id="ios-auth-mask">
+            <button id="auth-btn">点击开启横竖屏识别</button>
+            <p id="auth-tip">检测到 iOS 设备：请授权动作传感器以确保运动分析画面能正确旋转。</p>
+        </div>
 
         <div id="ios-auth-mask">
             <button id="auth-btn">点击开启横竖屏识别</button>
