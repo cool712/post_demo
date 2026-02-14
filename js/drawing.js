@@ -132,7 +132,8 @@ export function drawSkeleton(lm) {
  */
 export function drawCountdown(remaining) {
     const { ctx, canvas, currentDeviceRotation } = state;
-    
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     ctx.save();
     // 半透明绿色背景覆盖层
     ctx.fillStyle = "rgba(0, 255, 0, 0.4)";
@@ -143,16 +144,37 @@ export function drawCountdown(remaining) {
     ctx.translate(canvas.width / 2, canvas.height / 2);
     
     // 根据设备旋转角度旋转文字，确保文字方向正确
-    const offset = 0; 
+    let rotationAngle = 0;
     if (currentDeviceRotation === 0) {
-        ctx.rotate(0 + offset); 
+        rotationAngle = 0;
     } else if (currentDeviceRotation === 90) {
-        ctx.rotate(Math.PI / 2 + offset);
+        rotationAngle = Math.PI / 2;
     } else if (currentDeviceRotation === -90) {
-        ctx.rotate(-Math.PI / 2 + offset);
+        rotationAngle = -Math.PI / 2;
     } else if (currentDeviceRotation === 180) {
-        ctx.rotate(Math.PI + offset);
+        rotationAngle = Math.PI;
     }
+    
+    // 对于 iOS 设备，调整旋转方向以匹配其他 UI 元素
+    if (isIOS) {
+        if (currentDeviceRotation === 90) {
+            rotationAngle = -Math.PI / 2;
+        } else if (currentDeviceRotation === -90) {
+            rotationAngle = Math.PI / 2;
+        }
+    }
+    
+    ctx.rotate(rotationAngle);
+    // const offset = 0; 
+    // if (currentDeviceRotation === 0) {
+    //     ctx.rotate(0 + offset); 
+    // } else if (currentDeviceRotation === 90) {
+    //     ctx.rotate(Math.PI / 2 + offset);
+    // } else if (currentDeviceRotation === -90) {
+    //     ctx.rotate(-Math.PI / 2 + offset);
+    // } else if (currentDeviceRotation === 180) {
+    //     ctx.rotate(Math.PI + offset);
+    // }
     
     // 绘制巨大的倒计时数字
     ctx.fillStyle = "white";
