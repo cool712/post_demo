@@ -145,22 +145,30 @@ export function drawCountdown(remaining) {
     
     // 根据设备旋转角度旋转文字，确保文字方向正确
     let rotationAngle = 0;
-    if (currentDeviceRotation === 0) {
-        rotationAngle = 0;
-    } else if (currentDeviceRotation === 90) {
-        rotationAngle = Math.PI / 2;
-    } else if (currentDeviceRotation === -90) {
-        rotationAngle = -Math.PI / 2;
-    } else if (currentDeviceRotation === 180) {
-        rotationAngle = Math.PI;
-    }
     
-    // 对于 iOS 设备，调整旋转方向以匹配其他 UI 元素
+    // 重新实现iOS设备的旋转逻辑，确保与其他UI元素一致
     if (isIOS) {
-        if (currentDeviceRotation === 90) {
-            rotationAngle = -Math.PI / 2;
-        } else if (currentDeviceRotation === -90) {
+        // iOS设备：直接使用currentDeviceRotation作为旋转角度
+        // 与CSS transform: rotate()保持一致
+        if (currentDeviceRotation === 0) {
+            rotationAngle = 0;
+        } else if (currentDeviceRotation === 90) {
             rotationAngle = Math.PI / 2;
+        } else if (currentDeviceRotation === -90) {
+            rotationAngle = -Math.PI / 2;
+        } else if (currentDeviceRotation === 180) {
+            rotationAngle = Math.PI;
+        }
+    } else {
+        // 非iOS设备：使用原有逻辑
+        if (currentDeviceRotation === 0) {
+            rotationAngle = 0;
+        } else if (currentDeviceRotation === 90) {
+            rotationAngle = Math.PI / 2;
+        } else if (currentDeviceRotation === -90) {
+            rotationAngle = -Math.PI / 2;
+        } else if (currentDeviceRotation === 180) {
+            rotationAngle = Math.PI;
         }
     }
     
