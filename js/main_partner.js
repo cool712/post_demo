@@ -207,19 +207,19 @@ function loop(ts) {
             state.SAFE_ZONE = { x: 0.025, y: 0.025, w: 0.95, h: 0.95 };
             drawSafeZone(ts);
             
-            // showDynamicIsland("AI模型加载中");
+            showDynamicIsland("AI模型加载中");
             // 新增测试
-             if (state.autoRecordState === 'COUNTDOWN') {
-                const elapsed = Date.now() - state.countdownStartTime;
-                const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
+            //  if (state.autoRecordState === 'COUNTDOWN') {
+            //     const elapsed = Date.now() - state.countdownStartTime;
+            //     const remaining = Math.ceil((CONSTANTS.COUNTDOWN_DURATION - elapsed) / 1000);
                 
-                drawCountdown(remaining);
-                if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
-                    _startMediaRecorder();
-                }
-            } else {
-                showDynamicIsland("AI模型加载中");
-            }
+            //     drawCountdown(remaining);
+            //     if (elapsed >= CONSTANTS.COUNTDOWN_DURATION) {
+            //         _startMediaRecorder();
+            //     }
+            // } else {
+            //     showDynamicIsland("AI模型加载中");
+            // }
             // 测试用，确保模型加载成功
         }
         return;
