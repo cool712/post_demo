@@ -1,7 +1,7 @@
 import {
     PoseLandmarker,
     FilesetResolver
-} from "/mediapipe/tasks-vision/tasks-vision@latest.js";
+} from "../mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
 import { showDynamicIsland, hideDynamicIsland, updateDynamicIslandRotation } from './ui.js';
@@ -148,13 +148,13 @@ window.toggleCamera = async () => {
 /* ---------- 修正后的 AI 模型加载 ---------- */
 async function initAI() {
     try {
-        const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+        const vision = await FilesetResolver.forVisionTasks("../mediapipe/tasks-vision/wasm");
         
         // 封装具体的创建逻辑
         const createLandmarker = async (delegateType) => {
             return await PoseLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: "/mediapipe/model/pose_landmarker_full.task", // 路径保持不变
+                    modelAssetPath: "../mediapipe/model/pose_landmarker_full.task", // 路径保持不变
                     delegate: delegateType
                 },
                 runningMode: "VIDEO",

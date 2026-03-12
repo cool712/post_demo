@@ -1,7 +1,7 @@
 import {
     PoseLandmarker,
     FilesetResolver
-} from "/mediapipe/tasks-vision/tasks-vision@latest.js";
+} from "../mediapipe/tasks-vision/tasks-vision@latest.js";
 
 import { state, CONSTANTS } from './state.js';
 import { showToast, hideToast, showDynamicIsland, hideDynamicIsland, updateToastRotation, updateDynamicIslandRotation, updateAllDialogsRotation } from './ui.js';
@@ -147,10 +147,10 @@ window.toggleCamera = async () => {
 async function initAI() {
     setTimeout(async () => {
         try {
-            const vision = await FilesetResolver.forVisionTasks("/mediapipe/tasks-vision/wasm");
+            const vision = await FilesetResolver.forVisionTasks("../mediapipe/tasks-vision/wasm");
             state.poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: "/mediapipe/model/pose_landmarker_full.task",
+                    modelAssetPath: "../mediapipe/model/pose_landmarker_full.task",
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO",
