@@ -147,10 +147,10 @@ window.toggleCamera = async () => {
 async function initAI() {
     setTimeout(async () => {
         try {
-            const vision = await FilesetResolver.forVisionTasks("../mediapipe/tasks-vision/wasm");
+            const vision = await FilesetResolver.forVisionTasks("./mediapipe/tasks-vision/wasm");
             state.poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: "../mediapipe/model/pose_landmarker_full.task",
+                    modelAssetPath: "./mediapipe/model/pose_landmarker_full.task",
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO",
