@@ -425,26 +425,15 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
     if (!lastVideoBlob || lastVideoBlob.size === 0) {
         throw new Error('EMPTY_VIDEO_BLOB');
     }
-    const inferredExt = extension || ((lastVideoBlob.type || '').includes('mp4') ? '.mp4' : '.webm');
+    const blobType = lastVideoBlob.type || currentRecordingMimeType || '';
+    const inferredExt = extension || (blobType.includes('mp4') ? '.mp4' : '.webm');
+    if (!blobType.includes('mp4')) {
+        throw new Error(`不支持的文件类型，仅支持: webp, mp4 (当前: ${blobType || inferredExt})`);
+    }
     const formData = new FormData();
     formData.append("file", lastVideoBlob, `video${inferredExt}`);
-    // --- 新增：准备发送到 Webhook 的数据 ---
-    const webhookUrl = "https://webhook.site/d619bf8a-00e1-4f3c-a768-c241e71a3a54";
-    const webhookFormData = new FormData();
-    webhookFormData.append("video", lastVideoBlob, `video${inferredExt}`);
-    webhookFormData.append("data", lastJsonBlob, "pose_data.json");
-    webhookFormData.append("log_id", logId);
-    // 新增
     try {
         const response = await fetch(uploadUrl, { method: "POST", body: formData, headers: { 'Authorization': `Bearer ${token}` }});
-        // 2. 新增：异步发送到 Webhook (不阻塞主逻辑，报错也仅记录日志)
-        fetch(webhookUrl, {
-            method: "POST",
-            body: webhookFormData,
-            mode: 'no-cors' // 防止跨域导致的报错中断流程
-        }).then(() => console.log("Webhook 备份上传成功"))
-          .catch(err => console.error("Webhook 备份失败:", err));
-        // 新增
         let resData = null;
         try {
             resData = await response.json();
@@ -453,28 +442,7 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
         }
         if (resData.code === 200) {
             const videoUrl = resData.data.url;
-            // const analyzeRes = await fetch(analyzeUrl, {
-            //     method: "POST",
-            //     headers: {
-            //         "Content-Type": "application/json",
-            //         "Authorization": `Bearer ${token}`
-            //     },
-            //     body: JSON.stringify({
-            //         "log_id": logId,
-            //         "video_url": videoUrl,
-            //         "data_json": state.poseDataJson
-            //     })
-            // });
-            // const analyzeData = await analyzeRes.json();
-            // if (analyzeData.code === 200) {
-            //     window.flutter_inappwebview.callHandler("onUploadComplete", {
-            //         success: true,
-            //         videoUrl: videoUrl,
-            //         analyzeData: analyzeData.data
-            //     });
-            // } else {
-            //     throw new Error(analyzeData.msg || "动作分析失败，请稍后重试");
-            // }
+        
             if (window.flutter_inappwebview) {
                 window.flutter_inappwebview.callHandler("onUploadComplete", {
                     success: true,
@@ -491,7 +459,9 @@ async function performUploadAction(uploadUrl, token, analyzeUrl, logId,extension
         if (window.flutter_inappwebview) {
             window.flutter_inappwebview.callHandler("onUploadComplete", {
                 success: false,
-                error: err.toString()
+                error: err.toString(),
+                mimeType: lastVideoBlob?.type || currentRecordingMimeType || mediaRecorder?.mimeType || '',
+                extension: inferredExt
             });
         }
     }
